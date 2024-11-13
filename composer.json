@@ -3,8 +3,8 @@
   "description": "creating dynamic API resources",
   "type": "library",
   "require": {
-    "php": "^8.1",
-    "laravel/framework": "^11.22.0"
+    "php": "^8.2",
+    "laravel/framework": "^11.0"
   },
   "license": "MIT",
   "autoload": {
@@ -30,6 +30,7 @@
     "analyse": "vendor/bin/phpstan analyse"
   },
   "minimum-stability": "dev",
+  "prefer-stable": true,
   "config": {
     "sort-packages": true,
     "preferred-install": "dist",
@@ -41,15 +42,15 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Benyaminrmb\\LaravelDynamicResources\\LaravelDynamicResourcesServiceProvider"
+        "Benyaminrmb\\LaravelDynamicResources\\Providers\\LaravelDynamicResourcesServiceProvider"
       ]
     }
   },
   "require-dev": {
-    "laravel/pint": "dev-main",
-    "orchestra/testbench": "9.x-dev",
-    "pestphp/pest": "3.x-dev",
-    "pestphp/pest-plugin-laravel": "3.0.0",
+    "laravel/pint": "^1.13",
+    "orchestra/testbench": "^9.0",
+    "pestphp/pest": "^3.0",
+    "pestphp/pest-plugin-laravel": "^2.0",
     "phpstan/phpstan": "^1.10"
   }
 }
