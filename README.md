@@ -1,208 +1,78 @@
-# Laravel Modular Resources
+# Laravel Dynamic Resources
 
-A flexible and powerful package for creating modular API resources in Laravel with support for different presentation modes, field filtering, and nested resources.
+[![Tests](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/tests.yml/badge.svg)](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/tests.yml)
+[![Latest Stable Version](https://poser.pugx.org/benyaminrmb/laravel-dynamic-resources/v)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
+[![License](https://poser.pugx.org/benyaminrmb/laravel-dynamic-resources/license)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/your-vendor/laravel-modular-resources.svg?style=flat-square)](https://packagist.org/packages/your-vendor/laravel-modular-resources)
-[![Total Downloads](https://img.shields.io/packagist/dt/your-vendor/laravel-modular-resources.svg?style=flat-square)](https://packagist.org/packages/your-vendor/laravel-modular-resources)
-
-## Features
-
-- 🔄 Multiple presentation modes (minimal, default, detailed, etc.)
-- 🔍 Field filtering with `only()` and `except()`
-- 🎯 Support for nested resources with independent modes
-- 📦 Collection support with mode inheritance
-- ⚡ Fluent interface for easy configuration
-- 🛠️ Fully type-hinted for better IDE support
+A flexible and powerful package for creating dynamic API resources in Laravel applications.
 
 ## Installation
 
 You can install the package via composer:
 
 ```bash
-composer require your-vendor/laravel-modular-resources
+composer require benyaminrmb/laravel-dynamic-resources
 ```
 
-## Basic Usage
-
-### 1. Create a Resource
-
-Create a new resource by extending the `ModularResource` class:
+## Usage
 
 ```php
-use YourVendor\LaravelModularResources\ModularResource;
+use Benyaminrmb\LaravelDynamicResources\ModularResource;
 
 class UserResource extends ModularResource
 {
     protected function fields(): array
     {
-        return match ($this->mode) {
+        return match($this->mode) {
             'minimal' => [
                 'id',
-                'username',
+                'name',
             ],
             'detailed' => [
                 'id',
-                'username',
+                'name',
                 'email',
-                'profile' => ProfileResource::make($this->profile)->minimal(),
-                'posts' => PostResource::collection($this->posts)->detailed(),
+                'phone',
+                'address',
+                'created_at',
             ],
             default => [
                 'id',
-                'username',
+                'name',
                 'email',
             ],
         };
     }
 }
-```
 
-### 2. Use the Resource
-
-```php
-// Basic usage
-return UserResource::make($user);
-
-// With specific mode
-return UserResource::make($user)->detailed();
-
-// Filter fields
-return UserResource::make($user)
-    ->detailed()
-    ->only(['id', 'username']);
-
-// Collection with mode
+// Usage in controller
 return UserResource::collection($users)->minimal();
-
-// Add additional fields
-return UserResource::make($user)
-    ->detailed()
-    ->additional(['meta' => ['timestamp' => now()]]);
+// or
+return (new UserResource($user))->detailed();
 ```
 
-## Advanced Features
+### Available Modes
 
-### Custom Modes
+- `minimal()`: Returns only essential fields
+- `default()`: Returns standard fields
+- `detailed()`: Returns all available fields
+- `basic()`: Alias for default mode
 
-You can define any custom modes in your resources:
+### Additional Methods
 
-```php
-class ProductResource extends ModularResource
-{
-    protected function fields(): array
-    {
-        return match ($this->mode) {
-            'cart' => [
-                'id',
-                'name',
-                'price',
-                'quantity',
-            ],
-            'wishlist' => [
-                'id',
-                'name',
-                'price',
-                'in_stock',
-            ],
-            default => [
-                'id',
-                'name',
-            ],
-        };
-    }
-}
-```
+- `only(['field1', 'field2'])`: Include only specific fields
+- `except(['field1', 'field2'])`: Exclude specific fields
+- `additional(['meta' => [...]])`: Add extra fields
 
-### Nested Resources
+## Testing
 
-Resources can be nested with independent modes:
-
-```php
-class OrderResource extends ModularResource
-{
-    protected function fields(): array
-    {
-        return match ($this->mode) {
-            'detailed' => [
-                'id',
-                'total',
-                'customer' => UserResource::make($this->user)->minimal(),
-                'products' => ProductResource::collection($this->products)->cart(),
-            ],
-            default => [
-                'id',
-                'total',
-            ],
-        };
-    }
-}
-```
-
-### Field Filtering
-
-Filter specific fields in or out:
-
-```php
-// Include only specific fields
-UserResource::make($user)
-    ->detailed()
-    ->only(['id', 'username', 'posts']);
-
-// Exclude specific fields
-UserResource::make($user)
-    ->detailed()
-    ->except(['email', 'phone']);
-```
-
-### Additional Data
-
-Add extra data to your resources:
-
-```php
-UserResource::make($user)
-    ->additional([
-        'meta' => [
-            'server_time' => now(),
-            'version' => '1.0',
-        ],
-    ]);
-```
-
-## Available Methods
-
-### Resource Methods
-
-- `minimal()` - Set minimal mode
-- `detailed()` - Set detailed mode
-- `default()` - Set default mode
-- `setMode(string $mode)` - Set custom mode
-- `only(array $fields)` - Include only specific fields
-- `except(array $fields)` - Exclude specific fields
-- `additional(array $data)` - Add additional data
-
-### Collection Methods
-
-All resource methods are available for collections too:
-
-```php
-UserResource::collection($users)
-    ->minimal()
-    ->except(['created_at'])
-    ->additional(['meta' => ['total' => $users->count()]]);
+```bash
+composer test
 ```
 
 ## Contributing
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-If you discover any security related issues, please email your@email.com instead of using the issue tracker.
-
-## Credits
-
-- [Your Name](https://github.com/yourusername)
-- [All Contributors](../../contributors)
 
 ## License
 
