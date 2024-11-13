@@ -50,7 +50,7 @@
     "laravel/pint": "^1.13",
     "orchestra/testbench": "^9.0",
     "pestphp/pest": "^3.0",
-    "pestphp/pest-plugin-laravel": "^2.0",
+    "pestphp/pest-plugin-laravel": "^3.0",
     "phpstan/phpstan": "^1.10"
   }
 }
