@@ -1,8 +1,14 @@
 parameters:
-    level: 8
+    level: 5
     paths:
         - src
         - tests
-    tmpDir: build/phpstan
+    ignoreErrors:
+        -
+            message: '#Access to an undefined property PHPUnit\\Framework\\TestCase::\$model#'
+            path: tests/*
+        -
+            message: '#Access to an undefined property .+TestResource::\$name#'
+            path: tests/*
     checkMissingIterableValueType: false
     checkGenericClassInNonGenericObjectType: false

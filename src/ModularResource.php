@@ -2,22 +2,34 @@
 
 namespace Benyaminrmb\LaravelDynamicResources;
 
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
+use JsonSerializable;
 
 abstract class ModularResource extends JsonResource
 {
+    /** @var array<string, mixed> */
     public $additional = [];
 
     protected string $mode = 'default';
 
+    /** @var array<int|string, mixed> */
     protected array $except = [];
 
+    /** @var array<int|string, mixed> */
     protected array $only = [];
 
     private bool $modeExplicitlySet = false;
 
-    public function toArray($request): array
+    /**
+     * Transform the resource into an array.
+     *
+     * @param Request $request
+     * @return array|Arrayable|JsonSerializable
+     */
+    public function toArray(Request $request): array|JsonSerializable|Arrayable
     {
         $fields = collect($this->fields());
 
@@ -50,10 +62,15 @@ abstract class ModularResource extends JsonResource
         })->collapse()->toArray();
     }
 
+    /**
+     * @return array<string|int, mixed>
+     */
     abstract protected function fields(): array;
 
     /**
      * Include only specific fields
+     *
+     * @param  array<int|string, mixed>  $fields
      */
     public function only(array $fields): static
     {
@@ -64,6 +81,8 @@ abstract class ModularResource extends JsonResource
 
     /**
      * Exclude specific fields
+     *
+     * @param  array<int|string, mixed>  $fields
      */
     public function except(array $fields): static
     {
@@ -85,7 +104,10 @@ abstract class ModularResource extends JsonResource
         return $this;
     }
 
-    protected function handleCollection(Collection $collection)
+    /**
+     * @param  Collection<int|string, mixed>  $collection
+     */
+    protected function handleCollection(Collection $collection): ModularResourceCollection
     {
         return static::collection($collection)
             ->when(! $this->modeExplicitlySet, fn ($c) => $c->setMode($this->mode))
@@ -96,6 +118,8 @@ abstract class ModularResource extends JsonResource
 
     /**
      * Create a new collection
+     *
+     * @param  mixed  $resource
      */
     public static function collection($resource): ModularResourceCollection
     {
@@ -104,6 +128,8 @@ abstract class ModularResource extends JsonResource
 
     /**
      * Add additional fields
+     *
+     * @param  array<string, mixed>  $data
      */
     public function additional(array $data): static
     {
