@@ -5,7 +5,6 @@ namespace Benyaminrmb\LaravelDynamicResources\Tests;
 use Benyaminrmb\LaravelDynamicResources\Providers\LaravelModularResourcesServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
-
 class TestCase extends Orchestra
 {
     protected function getPackageProviders($app): array
