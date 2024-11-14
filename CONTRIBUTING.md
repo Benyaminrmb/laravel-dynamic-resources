@@ -1,41 +1,73 @@
 # Contributing
 
-Contributions are welcome and will be fully credited.
+Thanks for considering contributing to Laravel Dynamic Resources! Here are a few guidelines to help you get started.
 
-## Things you can do
+## Prerequisites
 
-1. Improve documentation
-2. Report bugs
-3. Fix bugs and implement features
-4. Add new features
-5. Write tests
+- PHP 8.2 or higher
+- Composer
+- Git
 
-## Pull Requests
+## Getting Started
 
-- **Add tests!** - Your patch won't be accepted if it doesn't have tests.
+1. Fork the repository
+2. Clone your fork
+3. Create a new branch for your feature or bugfix
+4. Install dependencies:
+```bash
+composer install
+```
 
-- **Document any change in behaviour** - Make sure the `README.md` and any other relevant documentation are kept up-to-date.
+## Development Workflow
 
-- **Consider our release cycle** - We try to follow [SemVer v2.0.0](http://semver.org/). Randomly breaking public APIs is not an option.
+1. Make your changes
+2. Add tests for any new functionality
+3. Run the test suite:
+```bash
+composer test
+```
+4. Run static analysis:
+```bash
+composer analyse
+```
+5. Format your code:
+```bash
+composer format
+```
+6. Commit your changes with a descriptive commit message
+7. Push to your fork
+8. Submit a pull request
 
-- **Create feature branches** - Don't ask us to pull from your master branch.
+## Pull Request Guidelines
 
-- **One pull request per feature** - If you want to do more than one thing, send multiple pull requests.
+- Update the README.md if necessary
+- Add tests for new features
+- Follow PSR-12 coding standards
+- Keep your PR focused on a single feature/fix
+- Write a clear PR description explaining your changes
+
+## Code Style
+
+This project uses Laravel Pint for code formatting. Before submitting your PR, run:
+
+```bash
+composer format
+```
 
 ## Running Tests
 
-``` bash
+```bash
 composer test
 ```
 
 ## Static Analysis
 
-``` bash
+The project uses PHPStan for static analysis. Run:
+
+```bash
 composer analyse
 ```
 
-## Code Style
+## Questions or Problems?
 
-``` bash
-composer format
-```
+Feel free to open an issue if you have any questions or run into problems.
