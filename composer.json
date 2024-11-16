@@ -39,13 +39,6 @@
       "pestphp/pest-plugin": true
     }
   },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Benyaminrmb\\LaravelDynamicResources\\Providers\\LaravelDynamicResourcesServiceProvider"
-      ]
-    }
-  },
   "require-dev": {
     "laravel/pint": "^1.13",
     "orchestra/testbench": "^9.0",
