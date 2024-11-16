@@ -2,8 +2,7 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
 [![Total Downloads](https://img.shields.io/packagist/dt/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
-[![Tests](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/run-tests.yml/badge.svg?branch=main)](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/run-tests.yml)
-[![PHPStan](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/phpstan.yml/badge.svg?branch=main)](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/phpstan.yml)
+
 
 A flexible and powerful package for creating dynamic API resources in Laravel. This package extends Laravel's API Resources with features like modes (minimal, default, detailed), field filtering, and nested resource handling.
 
