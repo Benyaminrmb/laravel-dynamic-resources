@@ -3,17 +3,17 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
 [![Total Downloads](https://img.shields.io/packagist/dt/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
 
-
-A flexible and powerful package for creating dynamic API resources in Laravel. This package extends Laravel's API Resources with features like modes (minimal, default, detailed), field filtering, and nested resource handling.
+A flexible and powerful package for creating dynamic API resources in Laravel. This package extends Laravel's API Resources with features like modular modes (minimal, detailed, etc.), field filtering, and nested resource handling.
 
 ## Features
 
-- 🔄 Multiple response modes (minimal, default, detailed)
+- 🔄 Multiple response modes with chainable methods
 - 🎯 Field filtering with `only()` and `except()`
 - 🔗 Automatic nested resource handling
 - 🎨 Additional field support
 - 🌲 Collection support with consistent formatting
 - ⚡ Fluent interface for easy chaining
+- 🔌 Dynamic mode combinations using `with` and `without` methods
 
 ## Requirements
 
@@ -41,26 +41,22 @@ class UserResource extends ModularResource
 {
     protected function fields(): array
     {
-        return match($this->mode) {
+        return [
             'minimal' => [
                 'id',
-                'name',
+                'username',
             ],
-            'detailed' => [
+            'avatar' => [
+                'profile' => UploadResource::make($this->channel->profile)->minimal(),
+            ],
+            'rank' => [
+                'rank' => (int) $this->rank?->rank ?? 0,
+            ],
+            'default' => [
                 'id',
-                'name',
-                'email',
-                'created_at',
-                'updated_at',
-                'posts' => PostResource::collection($this->posts),
-            ],
-            default => [
-                'id',
-                'name',
-                'email',
-                'created_at',
-            ],
-        };
+                'username',
+            ]
+        ];
     }
 }
 ```
@@ -68,31 +64,44 @@ class UserResource extends ModularResource
 ### Using the Resource
 
 ```php
-// Basic usage
-return UserResource::make($user);
-
-// With mode selection
+// Basic usage with single mode
 return UserResource::make($user)->minimal();
-return UserResource::make($user)->detailed();
+
+// Combining multiple modes
+return UserResource::make($user)
+    ->minimal()
+    ->withAvatar()
+    ->withRank();
+
+// Remove specific modes
+return UserResource::make($user)
+    ->minimal()
+    ->withAvatar()
+    ->withoutRank();
+
+// Collection usage with modes
+return UserResource::collection($users)
+    ->minimal()
+    ->withAvatar()
+    ->withRank();
 
 // Filter specific fields
 return UserResource::make($user)
-    ->only(['id', 'name'])
+    ->minimal()
+    ->withAvatar()
+    ->only(['id', 'username', 'profile'])
     ->additional(['meta' => 'some value']);
-
-// Collection usage
-return UserResource::collection($users)
-    ->detailed()
-    ->except(['created_at', 'updated_at']);
 ```
 
-### Available Modes
+### Available Features
 
-- `minimal()`: Returns minimal data
-- `default()` or `basic()`: Returns default data set
-- `detailed()`: Returns complete data set with relations
+#### Mode Combinations
+You can combine different modes using the following methods:
+- Basic modes: `minimal()`, `default()`, `detailed()`
+- Add modes: `withAvatar()`, `withRank()`, etc.
+- Remove modes: `withoutAvatar()`, `withoutRank()`, etc.
 
-### Field Filtering
+#### Field Filtering
 
 ```php
 // Include only specific fields
@@ -102,7 +111,7 @@ UserResource::make($user)->only(['id', 'name']);
 UserResource::make($user)->except(['created_at', 'updated_at']);
 ```
 
-### Additional Data
+#### Additional Data
 
 ```php
 UserResource::make($user)->additional([
@@ -115,7 +124,7 @@ UserResource::make($user)->additional([
 
 ### Nested Resources
 
-The package automatically handles nested resources and maintains the selected mode throughout the resource tree:
+The package automatically handles nested resources and maintains the selected modes throughout the resource tree:
 
 ```php
 class UserResource extends ModularResource
@@ -123,10 +132,20 @@ class UserResource extends ModularResource
     protected function fields(): array
     {
         return [
-            'id',
-            'name',
-            'posts' => PostResource::collection($this->posts),
-            'profile' => ProfileResource::make($this->profile),
+            'minimal' => [
+                'id',
+                'name',
+            ],
+            'posts' => [
+                'posts' => PostResource::collection($this->posts),
+            ],
+            'profile' => [
+                'profile' => ProfileResource::make($this->profile),
+            ],
+            'default' => [
+                'id',
+                'name',
+            ]
         ];
     }
 }

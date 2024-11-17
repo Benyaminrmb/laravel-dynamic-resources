@@ -7,7 +7,8 @@ use Illuminate\Http\Resources\MissingValue;
 
 class ModularResourceCollection extends ResourceCollection
 {
-    protected string $mode = 'default';
+    /** @var array<string> */
+    protected array $activeModes = ['default'];
 
     protected array $except = [];
 
@@ -34,25 +35,25 @@ class ModularResourceCollection extends ResourceCollection
             }
 
             // Use the concrete resource class that was passed in
-            if (! ($resource instanceof $this->resourceClass)) {
+            if (!($resource instanceof $this->resourceClass)) {
                 /** @var ModularResource $resourceInstance */
                 $resourceInstance = new $this->resourceClass($resource);
                 $resource = $resourceInstance;
             }
 
-            if (! $resource->isModeExplicitlySet() && $this->modeExplicitlySet) {
-                $resource->setMode($this->mode);
+            if (!$resource->isModeExplicitlySet() && $this->modeExplicitlySet) {
+                $resource->setActiveModes($this->activeModes);
             }
 
-            if (! empty($this->except)) {
+            if (!empty($this->except)) {
                 $resource->except($this->except);
             }
 
-            if (! empty($this->only)) {
+            if (!empty($this->only)) {
                 $resource->only($this->only);
             }
 
-            if (! empty($this->additional)) {
+            if (!empty($this->additional)) {
                 $resource->additional($this->additional);
             }
 
@@ -60,52 +61,85 @@ class ModularResourceCollection extends ResourceCollection
         })->all();
     }
 
-    public function setMode(string $mode): static
+    /**
+     * Set active modes
+     *
+     * @param array<string> $modes
+     */
+    public function setActiveModes(array $modes): static
     {
-        $this->mode = $mode;
+        $this->activeModes = $modes;
         $this->modeExplicitlySet = true;
-
         return $this;
     }
 
-    public function minimal(): static
+    /**
+     * Add a mode to active modes
+     */
+    public function addMode(string $mode): static
     {
-        return $this->setMode('minimal');
+        if (!in_array($mode, $this->activeModes)) {
+            $this->activeModes[] = $mode;
+        }
+        $this->modeExplicitlySet = true;
+        return $this;
     }
 
-    public function basic(): static
+    /**
+     * Remove a mode from active modes
+     */
+    public function removeMode(string $mode): static
     {
-        return $this->setMode('default');
-    }
-
-    public function default(): static
-    {
-        return $this->setMode('default');
-    }
-
-    public function detailed(): static
-    {
-        return $this->setMode('detailed');
+        $this->activeModes = array_diff($this->activeModes, [$mode]);
+        if (empty($this->activeModes)) {
+            $this->activeModes = ['default'];
+        }
+        return $this;
     }
 
     public function except(array $fields): static
     {
         $this->except = $fields;
-
         return $this;
     }
 
     public function only(array $fields): static
     {
         $this->only = $fields;
-
         return $this;
     }
 
     public function additional(array $data): static
     {
         $this->additional = array_merge($this->additional, $data);
-
         return $this;
+    }
+
+    /**
+     * Magic method to handle dynamic mode methods
+     */
+    public function __call($method, $parameters)
+    {
+        if (str_starts_with($method, 'with')) {
+            $mode = $this->normalizeMode(substr($method, 4));
+            return $this->addMode($mode);
+        }
+
+        if (str_starts_with($method, 'without')) {
+            $mode = $this->normalizeMode(substr($method, 7));
+            return $this->removeMode($mode);
+        }
+
+        // Handle existing mode methods (minimal, detailed, etc.)
+        $mode = $this->normalizeMode($method);
+        return $this->setActiveModes([$mode]);
+    }
+
+    /**
+     * Convert camelCase method name to kebab-case mode name
+     */
+    protected function normalizeMode(string $mode): string
+    {
+        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1-$2', $mode));
     }
 }

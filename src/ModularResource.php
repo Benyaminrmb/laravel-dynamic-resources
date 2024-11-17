@@ -13,7 +13,8 @@ abstract class ModularResource extends JsonResource
     /** @var array<string, mixed> */
     public $additional = [];
 
-    protected string $mode = 'default';
+    /** @var array<string> */
+    protected array $activeModes = ['default'];
 
     /** @var array<int|string, mixed> */
     protected array $except = [];
@@ -31,12 +32,18 @@ abstract class ModularResource extends JsonResource
      */
     public function toArray(Request $request): array|JsonSerializable|Arrayable
     {
-        $fields = collect($this->fields());
+        $fields = collect([]);
+
+        // Combine fields from all active modes
+        foreach ($this->activeModes as $mode) {
+            $modeFields = collect($this->getFieldsForMode($mode));
+            $fields = $fields->merge($modeFields);
+        }
 
         // Apply field filters
-        if (! empty($this->only)) {
+        if (!empty($this->only)) {
             $fields = $fields->only($this->only);
-        } elseif (! empty($this->except)) {
+        } elseif (!empty($this->except)) {
             $fields = $fields->except($this->except);
         }
 
@@ -51,9 +58,9 @@ abstract class ModularResource extends JsonResource
                 $value = $this->{$value};
             }
 
-            // Apply mode to nested resources only if mode hasn't been explicitly set
-            if ($value instanceof ModularResource && ! $value->isModeExplicitlySet()) {
-                $value->setMode($this->mode);
+            // Apply modes to nested resources
+            if ($value instanceof ModularResource && !$value->isModeExplicitlySet()) {
+                $value->setActiveModes($this->activeModes);
             } elseif ($value instanceof Collection) {
                 $value = $this->handleCollection($value);
             }
@@ -63,31 +70,88 @@ abstract class ModularResource extends JsonResource
     }
 
     /**
+     * Get fields for a specific mode
+     *
+     * @param string $mode
      * @return array<string|int, mixed>
+     */
+    protected function getFieldsForMode(string $mode): array
+    {
+        return $this->fields()[$mode] ?? [];
+    }
+
+    /**
+     * Define available fields for each mode
+     *
+     * @return array<string, array<string|int, mixed>>
      */
     abstract protected function fields(): array;
 
     /**
      * Include only specific fields
      *
-     * @param  array<int|string, mixed>  $fields
+     * @param array<int|string, mixed> $fields
      */
     public function only(array $fields): static
     {
         $this->only = $fields;
-
         return $this;
     }
 
     /**
      * Exclude specific fields
      *
-     * @param  array<int|string, mixed>  $fields
+     * @param array<int|string, mixed> $fields
      */
     public function except(array $fields): static
     {
         $this->except = $fields;
+        return $this;
+    }
 
+    /**
+     * Set active modes
+     *
+     * @param array<string> $modes
+     */
+    public function setActiveModes(array $modes): static
+    {
+        $this->activeModes = $modes;
+        $this->modeExplicitlySet = true;
+        return $this;
+    }
+
+    /**
+     * Get active modes
+     *
+     * @return array<string>
+     */
+    public function getActiveModes(): array
+    {
+        return $this->activeModes;
+    }
+
+    /**
+     * Add a mode to active modes
+     */
+    public function addMode(string $mode): static
+    {
+        if (!in_array($mode, $this->activeModes)) {
+            $this->activeModes[] = $mode;
+        }
+        $this->modeExplicitlySet = true;
+        return $this;
+    }
+
+    /**
+     * Remove a mode from active modes
+     */
+    public function removeMode(string $mode): static
+    {
+        $this->activeModes = array_diff($this->activeModes, [$mode]);
+        if (empty($this->activeModes)) {
+            $this->activeModes = ['default'];
+        }
         return $this;
     }
 
@@ -96,30 +160,24 @@ abstract class ModularResource extends JsonResource
         return $this->modeExplicitlySet;
     }
 
-    public function setMode(string $mode): static
-    {
-        $this->mode = $mode;
-        $this->modeExplicitlySet = true;
-
-        return $this;
-    }
-
     /**
-     * @param  Collection<int|string, mixed>  $collection
+     * Handle collection of resources
+     *
+     * @param Collection<int|string, mixed> $collection
      */
     protected function handleCollection(Collection $collection): ModularResourceCollection
     {
         return static::collection($collection)
-            ->when(! $this->modeExplicitlySet, fn ($c) => $c->setMode($this->mode))
-            ->when(! empty($this->except), fn ($c) => $c->except($this->except))
-            ->when(! empty($this->only), fn ($c) => $c->only($this->only))
-            ->when(! empty($this->additional), fn ($c) => $c->additional($this->additional));
+            ->when(!empty($this->activeModes), fn($c) => $c->setActiveModes($this->activeModes))
+            ->when(!empty($this->except), fn($c) => $c->except($this->except))
+            ->when(!empty($this->only), fn($c) => $c->only($this->only))
+            ->when(!empty($this->additional), fn($c) => $c->additional($this->additional));
     }
 
     /**
-     * Create a new collection
+     * Create new collection
      *
-     * @param  mixed  $resource
+     * @param mixed $resource
      */
     public static function collection($resource): ModularResourceCollection
     {
@@ -129,32 +187,39 @@ abstract class ModularResource extends JsonResource
     /**
      * Add additional fields
      *
-     * @param  array<string, mixed>  $data
+     * @param array<string, mixed> $data
      */
     public function additional(array $data): static
     {
         $this->additional = array_merge($this->additional, $data);
-
         return $this;
     }
 
-    public function minimal(): static
+    /**
+     * Magic method to handle dynamic mode methods
+     */
+    public function __call($method, $parameters)
     {
-        return $this->setMode('minimal');
+        if (str_starts_with($method, 'with')) {
+            $mode = $this->normalizeMode(substr($method, 4));
+            return $this->addMode($mode);
+        }
+
+        if (str_starts_with($method, 'without')) {
+            $mode = $this->normalizeMode(substr($method, 7));
+            return $this->removeMode($mode);
+        }
+
+        // Handle existing mode methods (minimal, detailed, etc.)
+        $mode = $this->normalizeMode($method);
+        return $this->setActiveModes([$mode]);
     }
 
-    public function basic(): static
+    /**
+     * Convert camelCase method name to kebab-case mode name
+     */
+    protected function normalizeMode(string $mode): string
     {
-        return $this->setMode('default');
-    }
-
-    public function default(): static
-    {
-        return $this->setMode('default');
-    }
-
-    public function detailed(): static
-    {
-        return $this->setMode('detailed');
+        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1-$2', $mode));
     }
 }
