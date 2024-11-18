@@ -32,141 +32,82 @@ abstract class ModularResource extends JsonResource
      */
     public function toArray(Request $request): array|JsonSerializable|Arrayable
     {
-        $fields = collect([]);
+        $result = collect([]);
 
-        // Combine fields from all active modes
+        // Get all fields structure
+        $fields = $this->fields();
+
+        // Process each active mode
         foreach ($this->activeModes as $mode) {
-            $modeFields = collect($this->getFieldsForMode($mode));
-            $fields = $fields->merge($modeFields);
+            if (!isset($fields[$mode])) {
+                continue;
+            }
+
+            // Get mode fields
+            $modeFields = $fields[$mode];
+
+            // If the mode is a closure, evaluate it
+            if ($modeFields instanceof \Closure) {
+                $modeFields = $modeFields();
+            }
+
+            // Process each field in the mode
+            foreach ($modeFields as $key => $value) {
+                // Handle numeric keys (field names)
+                if (is_numeric($key)) {
+                    $result[$value] = $this->resolveField($this->{$value});
+                    continue;
+                }
+
+                $result[$key] = $this->resolveField($value);
+            }
         }
 
         // Apply field filters
         if (!empty($this->only)) {
-            $fields = $fields->only($this->only);
+            $result = $result->only($this->only);
         } elseif (!empty($this->except)) {
-            $fields = $fields->except($this->except);
+            $result = $result->except($this->except);
         }
 
-        // Add additional fields
-        $fields = $fields->merge($this->additional);
-
-        // Transform the fields
-        return $fields->map(function ($value, $key) {
-            // Handle numeric keys (field names)
-            if (is_numeric($key)) {
-                $key = $value;
-                $value = $this->{$value};
-            }
-
-            // Apply modes to nested resources
-            if ($value instanceof ModularResource && !$value->isModeExplicitlySet()) {
-                $value->setActiveModes($this->activeModes);
-            } elseif ($value instanceof Collection) {
-                $value = $this->handleCollection($value);
-            }
-
-            return [$key => $value];
-        })->collapse()->toArray();
+        // Merge additional data
+        return array_merge($result->toArray(), $this->additional);
     }
 
     /**
-     * Get fields for a specific mode
+     * Resolve a field value
      *
-     * @param string $mode
-     * @return array<string|int, mixed>
+     * @param mixed $value
+     * @return mixed
      */
-    protected function getFieldsForMode(string $mode): array
+    protected function resolveField($value)
     {
-        return $this->fields()[$mode] ?? [];
-    }
-
-    /**
-     * Define available fields for each mode
-     *
-     * @return array<string, array<string|int, mixed>>
-     */
-    abstract protected function fields(): array;
-
-    /**
-     * Include only specific fields
-     *
-     * @param array<int|string, mixed> $fields
-     */
-    public function only(array $fields): static
-    {
-        $this->only = $fields;
-        return $this;
-    }
-
-    /**
-     * Exclude specific fields
-     *
-     * @param array<int|string, mixed> $fields
-     */
-    public function except(array $fields): static
-    {
-        $this->except = $fields;
-        return $this;
-    }
-
-    /**
-     * Set active modes
-     *
-     * @param array<string> $modes
-     */
-    public function setActiveModes(array $modes): static
-    {
-        $this->activeModes = $modes;
-        $this->modeExplicitlySet = true;
-        return $this;
-    }
-
-    /**
-     * Get active modes
-     *
-     * @return array<string>
-     */
-    public function getActiveModes(): array
-    {
-        return $this->activeModes;
-    }
-
-    /**
-     * Add a mode to active modes
-     */
-    public function addMode(string $mode): static
-    {
-        if (!in_array($mode, $this->activeModes)) {
-            $this->activeModes[] = $mode;
+        // Handle closure
+        if ($value instanceof \Closure) {
+            $value = $value();
         }
-        $this->modeExplicitlySet = true;
-        return $this;
-    }
 
-    /**
-     * Remove a mode from active modes
-     */
-    public function removeMode(string $mode): static
-    {
-        $this->activeModes = array_diff($this->activeModes, [$mode]);
-        if (empty($this->activeModes)) {
-            $this->activeModes = ['default'];
+        // Handle nested ModularResource
+        if ($value instanceof ModularResource && !$value->isModeExplicitlySet()) {
+            $value->setActiveModes($this->activeModes);
         }
-        return $this;
-    }
+        // Handle nested collections
+        elseif ($value instanceof Collection) {
+            $value = $this->handleCollection($value);
+        }
 
-    public function isModeExplicitlySet(): bool
-    {
-        return $this->modeExplicitlySet;
+        return $value;
     }
 
     /**
      * Handle collection of resources
-     *
-     * @param Collection<int|string, mixed> $collection
      */
-    protected function handleCollection(Collection $collection): ModularResourceCollection
+    protected function handleCollection(Collection $collection): Collection|ModularResourceCollection
     {
+        if ($collection->isEmpty()) {
+            return $collection;
+        }
+
         return static::collection($collection)
             ->when(!empty($this->activeModes), fn($c) => $c->setActiveModes($this->activeModes))
             ->when(!empty($this->except), fn($c) => $c->except($this->except))
@@ -185,14 +126,77 @@ abstract class ModularResource extends JsonResource
     }
 
     /**
-     * Add additional fields
-     *
-     * @param array<string, mixed> $data
+     * Include only specific fields
+     */
+    public function only(array $fields): static
+    {
+        $this->only = $fields;
+        return $this;
+    }
+
+    /**
+     * Exclude specific fields
+     */
+    public function except(array $fields): static
+    {
+        $this->except = $fields;
+        return $this;
+    }
+
+    /**
+     * Add additional data
      */
     public function additional(array $data): static
     {
         $this->additional = array_merge($this->additional, $data);
         return $this;
+    }
+
+    /**
+     * Set active modes
+     */
+    public function setActiveModes(array $modes): static
+    {
+        $this->activeModes = $modes;
+        $this->modeExplicitlySet = true;
+        return $this;
+    }
+
+    /**
+     * Get active modes
+     */
+    public function getActiveModes(): array
+    {
+        return $this->activeModes;
+    }
+
+    /**
+     * Add a mode
+     */
+    public function addMode(string $mode): static
+    {
+        if (!in_array($mode, $this->activeModes)) {
+            $this->activeModes[] = $mode;
+        }
+        $this->modeExplicitlySet = true;
+        return $this;
+    }
+
+    /**
+     * Remove a mode
+     */
+    public function removeMode(string $mode): static
+    {
+        $this->activeModes = array_diff($this->activeModes, [$mode]);
+        if (empty($this->activeModes)) {
+            $this->activeModes = ['default'];
+        }
+        return $this;
+    }
+
+    public function isModeExplicitlySet(): bool
+    {
+        return $this->modeExplicitlySet;
     }
 
     /**
@@ -210,8 +214,8 @@ abstract class ModularResource extends JsonResource
             return $this->removeMode($mode);
         }
 
-        // Handle existing mode methods (minimal, detailed, etc.)
         $mode = $this->normalizeMode($method);
+
         return $this->setActiveModes([$mode]);
     }
 
@@ -222,4 +226,9 @@ abstract class ModularResource extends JsonResource
     {
         return strtolower(preg_replace('/([a-z])([A-Z])/', '$1-$2', $mode));
     }
+
+    /**
+     * Define available fields for each mode
+     */
+    abstract protected function fields(): array;
 }
