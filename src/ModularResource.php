@@ -2,7 +2,6 @@
 
 namespace Benyaminrmb\LaravelDynamicResources;
 
-use BadMethodCallException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -141,15 +140,6 @@ abstract class ModularResource extends JsonResource
     public function except(array $fields): static
     {
         $this->except = $fields;
-        return $this;
-    }
-
-    /**
-     * Add additional data
-     */
-    public function additional(array $data): static
-    {
-        $this->additional = array_merge($this->additional, $data);
         return $this;
     }
 
