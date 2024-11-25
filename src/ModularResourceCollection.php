@@ -120,6 +120,7 @@ class ModularResourceCollection extends ResourceCollection
      */
     public function __call($method, $parameters)
     {
+        // Check for mode-specific method patterns first
         if (str_starts_with($method, 'with')) {
             $mode = $this->normalizeMode(substr($method, 4));
             return $this->addMode($mode);
@@ -130,9 +131,23 @@ class ModularResourceCollection extends ResourceCollection
             return $this->removeMode($mode);
         }
 
-        // Handle existing mode methods (minimal, detailed, etc.)
+        // Try to call the method on the underlying collection
+        if (method_exists($this->collection, $method)) {
+            return $this->collection->{$method}(...$parameters);
+        }
+
+        // Check if it's a mode name by creating a temporary resource instance
+        $tempResource = new $this->resourceClass(null);
         $mode = $this->normalizeMode($method);
-        return $this->setActiveModes([$mode]);
+        if (method_exists($tempResource, 'fields') && isset($tempResource->fields()[$mode])) {
+            return $this->setActiveModes([$mode]);
+        }
+
+        throw new BadMethodCallException(sprintf(
+            'Method %s::%s does not exist.',
+            static::class,
+            $method
+        ));
     }
 
     /**

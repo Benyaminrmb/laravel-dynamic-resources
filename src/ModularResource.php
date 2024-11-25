@@ -204,6 +204,7 @@ abstract class ModularResource extends JsonResource
      */
     public function __call($method, $parameters)
     {
+        // Check for mode-specific method patterns first
         if (str_starts_with($method, 'with')) {
             $mode = $this->normalizeMode(substr($method, 4));
             return $this->addMode($mode);
@@ -214,9 +215,22 @@ abstract class ModularResource extends JsonResource
             return $this->removeMode($mode);
         }
 
-        $mode = $this->normalizeMode($method);
+        // Check if the method exists in the underlying model
+        if (method_exists($this->resource, $method)) {
+            return $this->resource->{$method}(...$parameters);
+        }
 
-        return $this->setActiveModes([$mode]);
+        // Check if it's a mode name
+        $mode = $this->normalizeMode($method);
+        if (isset($this->fields()[$mode])) {
+            return $this->setActiveModes([$mode]);
+        }
+
+        throw new BadMethodCallException(sprintf(
+            'Method %s::%s does not exist.',
+            static::class,
+            $method
+        ));
     }
 
     /**
