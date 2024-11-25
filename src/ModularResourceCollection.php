@@ -1,7 +1,7 @@
 <?php
 
 namespace Benyaminrmb\LaravelDynamicResources;
-
+use BadMethodCallException;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\Resources\MissingValue;
 
