@@ -1,7 +1,7 @@
 <?php
 
 namespace Benyaminrmb\LaravelDynamicResources;
-
+use BadMethodCallException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -32,6 +32,11 @@ abstract class ModularResource extends JsonResource
      */
     public function toArray(Request $request): array|JsonSerializable|Arrayable
     {
+        // If resource is null, return an empty array
+        if ($this->resource === null) {
+            return [];
+        }
+
         $result = collect([]);
 
         // Get all fields structure
@@ -55,7 +60,10 @@ abstract class ModularResource extends JsonResource
             foreach ($modeFields as $key => $value) {
                 // Handle numeric keys (field names)
                 if (is_numeric($key)) {
-                    $result[$value] = $this->resolveField($this->{$value});
+                    // Add null check before accessing property
+                    $result[$value] = $this->resource !== null
+                        ? $this->resolveField($this->{$value})
+                        : null;
                     continue;
                 }
 
@@ -98,6 +106,53 @@ abstract class ModularResource extends JsonResource
 
         return $value;
     }
+
+    /**
+     * Magic method to handle dynamic mode methods
+     */
+    public function __call($method, $parameters)
+    {
+        // Check for mode-specific method patterns first
+        if (str_starts_with($method, 'with')) {
+            $mode = $this->normalizeMode(substr($method, 4));
+            return $this->addMode($mode);
+        }
+
+        if (str_starts_with($method, 'without')) {
+            $mode = $this->normalizeMode(substr($method, 7));
+            return $this->removeMode($mode);
+        }
+
+        // Check if it's a mode name first
+        $mode = $this->normalizeMode($method);
+        if (isset($this->fields()[$mode])) {
+            return $this->setActiveModes([$mode]);
+        }
+
+        // If resource is null, can't check method existence
+        if ($this->resource === null) {
+            throw new BadMethodCallException(sprintf(
+                'Method %s::%s cannot be called on null resource.',
+                static::class,
+                $method
+            ));
+        }
+
+        // Check if the method exists in the underlying model
+        if (method_exists($this->resource, $method)) {
+            return $this->resource->{$method}(...$parameters);
+        }
+
+        throw new BadMethodCallException(sprintf(
+            'Method %s::%s does not exist.',
+            static::class,
+            $method
+        ));
+    }
+
+
+
+
 
     /**
      * Handle collection of resources
@@ -188,40 +243,6 @@ abstract class ModularResource extends JsonResource
     public function isModeExplicitlySet(): bool
     {
         return $this->modeExplicitlySet;
-    }
-
-    /**
-     * Magic method to handle dynamic mode methods
-     */
-    public function __call($method, $parameters)
-    {
-        // Check for mode-specific method patterns first
-        if (str_starts_with($method, 'with')) {
-            $mode = $this->normalizeMode(substr($method, 4));
-            return $this->addMode($mode);
-        }
-
-        if (str_starts_with($method, 'without')) {
-            $mode = $this->normalizeMode(substr($method, 7));
-            return $this->removeMode($mode);
-        }
-
-        // Check if the method exists in the underlying model
-        if (method_exists($this->resource, $method)) {
-            return $this->resource->{$method}(...$parameters);
-        }
-
-        // Check if it's a mode name
-        $mode = $this->normalizeMode($method);
-        if (isset($this->fields()[$mode])) {
-            return $this->setActiveModes([$mode]);
-        }
-
-        throw new BadMethodCallException(sprintf(
-            'Method %s::%s does not exist.',
-            static::class,
-            $method
-        ));
     }
 
     /**
