@@ -1,12 +1,30 @@
 {
   "name": "benyaminrmb/laravel-dynamic-resources",
-  "description": "creating dynamic API resources",
+  "description": "Dynamic API resources with mode-based field selection for Laravel. Define minimal, default, detailed modes and compose them on the fly.",
+  "keywords": [
+    "laravel",
+    "api",
+    "resources",
+    "json",
+    "rest",
+    "dynamic",
+    "modes",
+    "sparse-fieldsets"
+  ],
   "type": "library",
+  "license": "MIT",
   "require": {
-    "php": "^8.2",
+    "php": "^8.4",
     "laravel/framework": "^11.0|^12.0"
   },
-  "license": "MIT",
+  "require-dev": {
+    "larastan/larastan": "^3.0",
+    "laravel/pint": "^1.18",
+    "orchestra/testbench": "^9.0|^10.0",
+    "pestphp/pest": "^3.0",
+    "pestphp/pest-plugin-laravel": "^3.0",
+    "phpstan/phpstan": "^2.0"
+  },
   "autoload": {
     "psr-4": {
       "Benyaminrmb\\LaravelDynamicResources\\": "src/"
@@ -25,9 +43,17 @@
   ],
   "scripts": {
     "test": "vendor/bin/pest",
-    "test-coverage": "vendor/bin/pest --coverage",
+    "test:coverage": "vendor/bin/pest --coverage --min=80",
     "format": "vendor/bin/pint",
-    "analyse": "vendor/bin/phpstan analyse"
+    "format:check": "vendor/bin/pint --test",
+    "analyse": "vendor/bin/phpstan analyse --memory-limit=512M"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Benyaminrmb\\LaravelDynamicResources\\Providers\\DynamicResourceServiceProvider"
+      ]
+    }
   },
   "minimum-stability": "stable",
   "prefer-stable": true,
@@ -38,12 +64,5 @@
     "allow-plugins": {
       "pestphp/pest-plugin": true
     }
-  },
-  "require-dev": {
-    "laravel/pint": "^1.13",
-    "orchestra/testbench": "^9.0",
-    "pestphp/pest": "^3.0",
-    "pestphp/pest-plugin-laravel": "^3.0",
-    "phpstan/phpstan": "^1.10"
   }
 }

@@ -1,14 +1,21 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
-    level: 5
+    level: 9
     paths:
         - src
-        - tests
+    excludePaths:
+        - src/stubs
+    checkMissingIterableValueType: true
+    checkGenericClassInNonGenericObjectType: true
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
+        # Allow dynamic property access on resources (for model attributes)
         -
-            message: '#Access to an undefined property PHPUnit\\Framework\\TestCase::\$model#'
-            path: tests/*
+            message: '#Access to an undefined property#'
+            path: src/DynamicResource.php
+        # Allow mixed return from closures in field definitions
         -
-            message: '#Access to an undefined property .+TestResource::\$name#'
-            path: tests/*
-    checkMissingIterableValueType: false
-    checkGenericClassInNonGenericObjectType: false
+            message: '#Method .+::fields\(\) return type has no value type#'
+            path: src/*

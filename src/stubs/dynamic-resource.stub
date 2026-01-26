@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Benyaminrmb\LaravelDynamicResources\DynamicResource;
+
+/**
+ * API Resource for {{ class }}.
+ *
+ * Available modes:
+ * - minimal: Basic identification fields
+ * - default: Standard fields for most use cases
+ * - detailed: Full details with relationships
+ *
+ * @extends DynamicResource<\{{ rootNamespace }}Models\{{ class }}>
+ */
+class {{ class }} extends DynamicResource
+{
+    /**
+     * Define the fields for each mode.
+     *
+     * @return array<string, array<int|string, mixed>|\Closure>
+     */
+    public function fields(): array
+    {
+        return [
+{{ modes }}
+        ];
+    }
+}
