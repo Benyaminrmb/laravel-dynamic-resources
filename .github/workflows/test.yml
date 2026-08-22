@@ -53,6 +53,6 @@ jobs:
           coverage: xdebug
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pest --coverage --min=80 --coverage-clover=coverage.xml
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
