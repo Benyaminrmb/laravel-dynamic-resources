@@ -77,7 +77,7 @@ it('handles null attribute values', function (): void {
         ->and($result['bio'])->toBeNull();
 });
 
-it('merges additional data', function (): void {
+it('keeps additional data at the response top level', function (): void {
     $user = new User([
         'id' => 1,
         'name' => 'John Doe',
@@ -87,13 +87,14 @@ it('merges additional data', function (): void {
     $result = UserResource::make($user)
         ->minimal()
         ->additional(['meta' => ['version' => '2.0']])
-        ->toArray(request());
+        ->response()
+        ->getData(true);
 
     expect($result)
-        ->toHaveKey('id', 1)
-        ->toHaveKey('name', 'John Doe')
         ->toHaveKey('meta')
-        ->and($result['meta'])->toBe(['version' => '2.0']);
+        ->and($result['meta'])->toBe(['version' => '2.0'])
+        ->and($result['data'])->toHaveKey('id', 1)
+        ->toHaveKey('name', 'John Doe');
 });
 
 it('returns available modes', function (): void {

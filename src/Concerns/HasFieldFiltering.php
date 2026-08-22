@@ -28,12 +28,12 @@ trait HasFieldFiltering
      * Include only the specified fields in the output.
      * When set, `except()` is cleared.
      *
-     * @param list<string> $fields
+     * @param  list<string>  $fields
      * @return $this
      */
     public function only(array $fields): static
     {
-        $this->onlyFields = array_values($fields);
+        $this->onlyFields = $fields;
         $this->exceptFields = []; // Clear except when only is set
 
         return $this;
@@ -43,12 +43,12 @@ trait HasFieldFiltering
      * Exclude the specified fields from the output.
      * When set, `only()` is cleared.
      *
-     * @param list<string> $fields
+     * @param  list<string>  $fields
      * @return $this
      */
     public function except(array $fields): static
     {
-        $this->exceptFields = array_values($fields);
+        $this->exceptFields = $fields;
         $this->onlyFields = []; // Clear only when except is set
 
         return $this;
@@ -86,7 +86,7 @@ trait HasFieldFiltering
 
         // If except is set, field must not be in the list
         if ($this->exceptFields !== []) {
-            return !in_array($field, $this->exceptFields, true);
+            return ! in_array($field, $this->exceptFields, true);
         }
 
         // No filtering, include all
@@ -96,7 +96,7 @@ trait HasFieldFiltering
     /**
      * Filter an array of fields based on current only/except settings.
      *
-     * @param array<string, mixed> $fields
+     * @param  array<string, mixed>  $fields
      * @return array<string, mixed>
      */
     protected function filterFields(array $fields): array

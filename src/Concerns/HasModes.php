@@ -5,176 +5,145 @@ declare(strict_types=1);
 namespace Benyaminrmb\LaravelDynamicResources\Concerns;
 
 use BadMethodCallException;
-use Benyaminrmb\LaravelDynamicResources\DTO\ModeConfiguration;
+use Benyaminrmb\LaravelDynamicResources\Exceptions\UndefinedModeException;
 
 /**
- * Trait for managing resource modes.
- * Provides mode manipulation methods and magic method handling for dynamic mode calls.
- *
- * @method array fields() Returns the field definitions (must be implemented by using class)
- * @method string defaultMode() Returns the default mode name (must be implemented by using class)
- *
- * @property mixed $resource The underlying resource
+ * @method array<string, array<int|string, mixed>|\Closure> fields()
+ * @method string defaultMode()
  */
 trait HasModes
 {
-    /**
-     * The current mode configuration.
-     */
-    private ?ModeConfiguration $modeConfiguration = null;
+    /** @var list<string>|null */
+    private ?array $activeModes = null;
 
-    /**
-     * Set the active modes, replacing any existing modes.
-     *
-     * @param list<string> $modes
-     * @return $this
-     */
+    private bool $modeExplicitlySet = false;
+
+    public function mode(string $mode): static
+    {
+        return $this->setActiveModes([$mode]);
+    }
+
+    public function withMode(string $mode): static
+    {
+        $this->assertModeExists($mode);
+        $modes = $this->getActiveModes();
+
+        if (! in_array($mode, $modes, true)) {
+            $modes[] = $mode;
+        }
+
+        $this->activeModes = $modes;
+        $this->modeExplicitlySet = true;
+
+        return $this;
+    }
+
+    public function withoutMode(string $mode): static
+    {
+        $modes = array_values(array_filter(
+            $this->getActiveModes(),
+            static fn (string $activeMode): bool => $activeMode !== $mode,
+        ));
+
+        $this->activeModes = $modes === [] ? [$this->defaultMode()] : $modes;
+        $this->modeExplicitlySet = true;
+
+        return $this;
+    }
+
+    /** @param list<string> $modes */
     public function setActiveModes(array $modes): static
     {
-        $this->modeConfiguration = $this->getModeConfiguration()->withModes($modes);
+        $modes = array_values(array_unique($modes));
+        $modes = $modes === [] ? [$this->defaultMode()] : $modes;
+
+        foreach ($modes as $mode) {
+            $this->assertModeExists($mode);
+        }
+
+        $this->activeModes = $modes;
+        $this->modeExplicitlySet = true;
 
         return $this;
     }
 
-    /**
-     * Get the currently active modes.
-     *
-     * @return list<string>
-     */
-    public function getActiveModes(): array
-    {
-        return $this->getModeConfiguration()->activeModes;
-    }
-
-    /**
-     * Add a mode to the currently active modes.
-     *
-     * @return $this
-     */
     public function addMode(string $mode): static
     {
-        $this->modeConfiguration = $this->getModeConfiguration()->addMode($mode);
-
-        return $this;
+        return $this->withMode($mode);
     }
 
-    /**
-     * Remove a mode from the currently active modes.
-     * Falls back to the default mode if no modes remain.
-     *
-     * @return $this
-     */
     public function removeMode(string $mode): static
     {
-        $this->modeConfiguration = $this->getModeConfiguration()->removeMode($mode);
-
-        return $this;
+        return $this->withoutMode($mode);
     }
 
-    /**
-     * Check if the mode was explicitly set (vs inherited or default).
-     */
-    public function hasModeExplicitlySet(): bool
+    /** @return list<string> */
+    public function getActiveModes(): array
     {
-        return $this->modeConfiguration?->explicitlySet ?? false;
+        return $this->activeModes ?? [$this->defaultMode()];
     }
 
-    /**
-     * Check if a specific mode is currently active.
-     */
     public function hasMode(string $mode): bool
     {
-        return $this->getModeConfiguration()->hasMode($mode);
+        return in_array($mode, $this->getActiveModes(), true);
+    }
+
+    public function hasModeExplicitlySet(): bool
+    {
+        return $this->modeExplicitlySet;
     }
 
     /**
-     * Get or create the mode configuration.
+     * @internal
+     *
+     * @param  list<string>  $modes
      */
-    public function getModeConfiguration(): ModeConfiguration
+    public function inheritModes(array $modes, bool $explicit): void
     {
-        if ($this->modeConfiguration === null) {
-            $this->modeConfiguration = new ModeConfiguration(
-                activeModes: [$this->defaultMode()],
-            );
+        $this->activeModes = $modes;
+        $this->modeExplicitlySet = $explicit;
+    }
+
+    /** @param list<mixed> $parameters */
+    protected function handleModeCall(string $method, array $parameters): mixed
+    {
+        if ($parameters !== []) {
+            throw new BadMethodCallException(sprintf('Mode method %s::%s() does not accept arguments.', static::class, $method));
         }
 
-        return $this->modeConfiguration;
-    }
-
-    /**
-     * Set the mode configuration directly.
-     *
-     * @return $this
-     */
-    public function setModeConfiguration(ModeConfiguration $config): static
-    {
-        $this->modeConfiguration = $config;
-
-        return $this;
-    }
-
-    /**
-     * Handle dynamic method calls for mode manipulation.
-     *
-     * Supports:
-     * - `withXxx()` - adds mode 'xxx'
-     * - `withoutXxx()` - removes mode 'xxx'
-     * - `xxx()` - sets active modes to ['xxx'] if xxx is a defined mode
-     *
-     * @param list<mixed> $parameters
-     * @throws BadMethodCallException
-     */
-    public function __call(string $method, array $parameters): mixed
-    {
-        // Handle with* methods (add mode)
-        if (str_starts_with($method, 'with') && !str_starts_with($method, 'without')) {
-            $mode = $this->normalizeModeName(substr($method, 4));
-
-            return $this->addMode($mode);
-        }
-
-        // Handle without* methods (remove mode)
         if (str_starts_with($method, 'without')) {
-            $mode = $this->normalizeModeName(substr($method, 7));
-
-            return $this->removeMode($mode);
+            return $this->withoutMode($this->normalizeModeName(substr($method, 7)));
         }
 
-        // Check if it's a mode name
+        if (str_starts_with($method, 'with')) {
+            return $this->withMode($this->normalizeModeName(substr($method, 4)));
+        }
+
         $mode = $this->normalizeModeName($method);
-        $fields = $this->fields();
 
-        if (isset($fields[$mode])) {
-            return $this->setActiveModes([$mode]);
-        }
-
-        // Forward to resource if applicable
-        if (isset($this->resource) && $this->resource !== null && method_exists($this->resource, $method)) {
-            return $this->resource->{$method}(...$parameters);
+        if (array_key_exists($mode, $this->fields())) {
+            return $this->mode($mode);
         }
 
         throw new BadMethodCallException(sprintf(
-            'Method %s::%s does not exist. Available modes: %s',
+            'Method %s::%s() does not exist. Available modes: %s.',
             static::class,
             $method,
-            implode(', ', array_keys($fields)),
+            implode(', ', array_keys($this->fields())),
         ));
     }
 
-    /**
-     * Convert camelCase or PascalCase method name to kebab-case mode name.
-     *
-     * Examples:
-     * - 'Minimal' -> 'minimal'
-     * - 'WithAvatar' -> 'avatar' (after stripping 'with' prefix)
-     * - 'UserProfile' -> 'user-profile'
-     * - 'myCustomMode' -> 'my-custom-mode'
-     */
     protected function normalizeModeName(string $name): string
     {
-        // Convert to kebab-case
-        $kebab = (string) preg_replace('/([a-z])([A-Z])/', '$1-$2', $name);
+        return strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $name));
+    }
 
-        return strtolower($kebab);
+    private function assertModeExists(string $mode): void
+    {
+        $available = array_keys($this->fields());
+
+        if (! in_array($mode, $available, true)) {
+            throw new UndefinedModeException($mode, static::class, $available);
+        }
     }
 }

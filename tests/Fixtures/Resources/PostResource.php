@@ -25,10 +25,10 @@ class PostResource extends DynamicResource
                 'body',
             ],
 
-            'detailed' => fn() => [
-                ...$this->mode('default'),
+            'detailed' => fn () => [
+                ...$this->fieldsFrom('default'),
                 'created_at' => $this->created_at?->toISOString(),
-                'author' => $this->whenLoaded('user', fn() => UserResource::make($this->user)->minimal()),
+                'author' => $this->whenLoaded('user', fn () => UserResource::make($this->user)->minimal()),
             ],
         ];
     }

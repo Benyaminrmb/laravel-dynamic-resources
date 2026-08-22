@@ -18,11 +18,4 @@ class TestCase extends Orchestra
             DynamicResourceServiceProvider::class,
         ];
     }
-
-    protected function defineEnvironment($app): void
-    {
-        // Set up config for testing
-        $app['config']->set('dynamic-resources.strict_mode', false);
-        $app['config']->set('dynamic-resources.debug_mode', false);
-    }
 }

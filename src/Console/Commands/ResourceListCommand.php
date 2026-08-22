@@ -17,12 +17,12 @@ use Symfony\Component\Finder\Finder;
  * ## Usage
  *
  * ```bash
- * php artisan resource:list
- * php artisan resource:list --modes
- * php artisan resource:list --json
+ * php artisan dynamic-resources:list
+ * php artisan dynamic-resources:list --modes
+ * php artisan dynamic-resources:list --json
  * ```
  */
-#[AsCommand(name: 'resource:list')]
+#[AsCommand(name: 'dynamic-resources:list')]
 class ResourceListCommand extends Command
 {
     /**
@@ -30,7 +30,7 @@ class ResourceListCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'resource:list
+    protected $signature = 'dynamic-resources:list
         {--filter= : Filter resources by name}
         {--modes : Show available modes for each resource}
         {--json : Output as JSON}';
@@ -49,13 +49,14 @@ class ResourceListCommand extends Command
     {
         $resources = $this->discoverResources();
 
-        if ($this->option('filter')) {
-            $filter = (string) $this->option('filter');
+        $filter = $this->option('filter');
+
+        if (is_string($filter) && $filter !== '') {
             $resources = array_filter(
                 $resources,
-                static fn(array $r): bool => str_contains(
-                    strtolower((string) $r['class']),
-                    strtolower($filter)
+                static fn (array $r): bool => str_contains(
+                    strtolower($r['class']),
+                    strtolower($filter),
                 )
             );
         }
@@ -98,20 +99,23 @@ class ResourceListCommand extends Command
      */
     protected function discoverResources(): array
     {
-        $paths = (array) config('dynamic-resources.discovery.paths', [app_path('Http/Resources')]);
-        $baseClass = (string) config(
-            'dynamic-resources.discovery.base_class',
-            DynamicResource::class
-        );
+        $configuredPaths = config('dynamic-resources.discovery.paths', [app_path('Http/Resources')]);
+        $paths = is_array($configuredPaths)
+            ? array_values(array_filter($configuredPaths, 'is_string'))
+            : [app_path('Http/Resources')];
+        $configuredBaseClass = config('dynamic-resources.discovery.base_class', DynamicResource::class);
+        $baseClass = is_string($configuredBaseClass) && class_exists($configuredBaseClass)
+            ? $configuredBaseClass
+            : DynamicResource::class;
 
         $resources = [];
 
         foreach ($paths as $path) {
-            if (!File::isDirectory($path)) {
+            if (! File::isDirectory($path)) {
                 continue;
             }
 
-            $finder = new Finder();
+            $finder = new Finder;
             $finder->files()->name('*.php')->in($path);
 
             foreach ($finder as $file) {
@@ -121,7 +125,7 @@ class ResourceListCommand extends Command
                     continue;
                 }
 
-                if (!class_exists($className)) {
+                if (! class_exists($className)) {
                     continue;
                 }
 
@@ -131,7 +135,7 @@ class ResourceListCommand extends Command
                     continue;
                 }
 
-                if (!$reflection->isSubclassOf($baseClass)) {
+                if (! $reflection->isSubclassOf($baseClass)) {
                     continue;
                 }
 
@@ -142,11 +146,13 @@ class ResourceListCommand extends Command
                 // Get modes if requested
                 if ($this->option('modes')) {
                     try {
-                        /** @var DynamicResource $instance */
-                        $instance = $reflection->newInstanceWithoutConstructor();
-                        $resourceData['modes'] = array_keys($instance->fields());
-                    } catch (\Throwable) {
-                        $resourceData['modes'] = ['Unable to determine modes'];
+                        $instance = new $className(null);
+
+                        if ($instance instanceof DynamicResource) {
+                            $resourceData['modes'] = array_keys($instance->fields());
+                        }
+                    } catch (\Throwable $exception) {
+                        $resourceData['modes'] = [sprintf('Unable to determine modes: %s', $exception->getMessage())];
                     }
                 }
 
@@ -155,7 +161,7 @@ class ResourceListCommand extends Command
         }
 
         // Sort by class name
-        usort($resources, static fn(array $a, array $b): int => strcmp((string) $a['class'], (string) $b['class']));
+        usort($resources, static fn (array $a, array $b): int => strcmp((string) $a['class'], (string) $b['class']));
 
         return $resources;
     }
@@ -180,6 +186,6 @@ class ResourceListCommand extends Command
         }
 
         /** @var class-string */
-        return $namespaceMatch[1] . '\\' . $classMatch[1];
+        return $namespaceMatch[1].'\\'.$classMatch[1];
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-use Orchestra\Testbench\TestCase;
+use Benyaminrmb\LaravelDynamicResources\Tests\TestCase;
 
 uses(TestCase::class)->in('Feature');
 

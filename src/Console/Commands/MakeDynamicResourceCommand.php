@@ -6,6 +6,7 @@ namespace Benyaminrmb\LaravelDynamicResources\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -63,7 +64,7 @@ class MakeDynamicResourceCommand extends GeneratorCommand
             return $customPath;
         }
 
-        return __DIR__ . '/../..' . $stub;
+        return __DIR__.'/../..'.$stub;
     }
 
     /**
@@ -71,7 +72,7 @@ class MakeDynamicResourceCommand extends GeneratorCommand
      */
     protected function getDefaultNamespace($rootNamespace): string
     {
-        return $rootNamespace . '\Http\Resources';
+        return $rootNamespace.'\Http\Resources';
     }
 
     /**
@@ -80,33 +81,27 @@ class MakeDynamicResourceCommand extends GeneratorCommand
     protected function buildClass($name): string
     {
         $stub = parent::buildClass($name);
-
         $model = $this->option('model');
-        if ($model) {
-            $stub = $this->replaceModel($stub, $model);
-        }
+        $modelClass = is_string($model) && $model !== '' ? $this->qualifyModel($model) : null;
+
+        $stub = str_replace(
+            ['{{ modelImport }}', '{{ modelDoc }}'],
+            [
+                $modelClass !== null ? sprintf("use %s;\n", $modelClass) : '',
+                $modelClass !== null
+                    ? sprintf('@property %s $resource', class_basename($modelClass))
+                    : '@property object $resource',
+            ],
+            $stub,
+        );
 
         $modes = $this->option('modes');
-        if ($modes) {
-            $stub = $this->replaceModes($stub, $modes);
+
+        if (! is_string($modes)) {
+            throw new InvalidArgumentException('The modes option must be a comma-separated string.');
         }
 
-        return $stub;
-    }
-
-    /**
-     * Replace the model placeholder.
-     */
-    protected function replaceModel(string $stub, string $model): string
-    {
-        $modelClass = $this->qualifyModel($model);
-        $modelBaseName = class_basename($modelClass);
-
-        return str_replace(
-            ['{{ modelClass }}', '{{ model }}', 'DummyModel'],
-            [$modelClass, $modelBaseName, $modelBaseName],
-            $stub
-        );
+        return $this->replaceModes($stub, $modes);
     }
 
     /**
@@ -119,11 +114,15 @@ class MakeDynamicResourceCommand extends GeneratorCommand
 
         $rootNamespace = $this->rootNamespace();
 
-        if (Str::startsWith($model, $rootNamespace)) {
-            return $model;
+        $qualified = Str::startsWith($model, $rootNamespace)
+            ? $model
+            : $rootNamespace.'Models\\'.$model;
+
+        if (! class_exists($qualified)) {
+            throw new InvalidArgumentException(sprintf("Model class '%s' does not exist.", $qualified));
         }
 
-        return $rootNamespace . 'Models\\' . $model;
+        return $qualified;
     }
 
     /**
@@ -131,7 +130,18 @@ class MakeDynamicResourceCommand extends GeneratorCommand
      */
     protected function replaceModes(string $stub, string $modes): string
     {
-        $modesList = array_map('trim', explode(',', $modes));
+        $modesList = array_values(array_unique(array_filter(array_map('trim', explode(',', $modes)))));
+
+        if (! in_array('default', $modesList, true)) {
+            throw new InvalidArgumentException('Generated resources must include a default mode.');
+        }
+
+        foreach ($modesList as $mode) {
+            if (preg_match('/^[a-z][a-z0-9-]*$/', $mode) !== 1) {
+                throw new InvalidArgumentException(sprintf("Invalid mode name '%s'.", $mode));
+            }
+        }
+
         $modesCode = $this->generateModesCode($modesList);
 
         return str_replace('{{ modes }}', $modesCode, $stub);
@@ -140,7 +150,7 @@ class MakeDynamicResourceCommand extends GeneratorCommand
     /**
      * Generate the modes array code.
      *
-     * @param list<string> $modes
+     * @param  list<string>  $modes
      */
     protected function generateModesCode(array $modes): string
     {
@@ -154,7 +164,7 @@ class MakeDynamicResourceCommand extends GeneratorCommand
             );
         }
 
-        return implode("\n", $lines);
+        return implode("\n\n", $lines);
     }
 
     /**

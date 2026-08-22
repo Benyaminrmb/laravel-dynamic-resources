@@ -24,25 +24,30 @@ trait HasConditionalFields
      * @template TValue
      * @template TDefault
      *
-     * @param string $attribute
-     * @param TValue|callable(): TValue|null $value
-     * @param TDefault|callable(): TDefault $default
+     * @param  TValue|callable(): TValue|null  $value
+     * @param  TDefault|callable(): TDefault  $default
      * @return TValue|TDefault|MissingValue|mixed
      */
     protected function whenAttributeFilled(string $attribute, mixed $value = null, mixed $default = null): mixed
     {
-        if (!isset($this->resource)) {
-            return new MissingValue();
+        if (! isset($this->resource)) {
+            return new MissingValue;
         }
 
-        $attributeValue = method_exists($this->resource, 'getAttribute')
-            ? $this->resource->getAttribute($attribute)
-            : ($this->resource->{$attribute} ?? null);
+        $resource = $this->resource;
+
+        if (! is_object($resource)) {
+            return new MissingValue;
+        }
+
+        $attributeValue = method_exists($resource, 'getAttribute')
+            ? $resource->getAttribute($attribute)
+            : ($resource->{$attribute} ?? null);
 
         $isFilled = $attributeValue !== null && $attributeValue !== '' && $attributeValue !== [];
 
-        if (!$isFilled) {
-            return func_num_args() >= 3 ? value($default) : new MissingValue();
+        if (! $isFilled) {
+            return func_num_args() >= 3 ? value($default) : new MissingValue;
         }
 
         if ($value === null && func_num_args() === 1) {

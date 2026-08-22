@@ -1,44 +1,23 @@
-name: Static Analysis
+name: Quality
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
-  phpstan:
-    name: PHPStan
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@master
+      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           coverage: none
-
-      - name: Install composer dependencies
-        run: composer install -n --prefer-dist
-
-      - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --error-format=github
-
-  pint:
-    name: Laravel Pint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@master
-        with:
-          php-version: '8.4'
-          coverage: none
-
-      - name: Install composer dependencies
-        run: composer install -n --prefer-dist
-
-      - name: Run Laravel Pint
-        run: vendor/bin/pint --test
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer composer:validate
+      - run: composer format:check
+      - run: composer analyse
+      - run: composer audit --locked

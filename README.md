@@ -1,27 +1,28 @@
-# Laravel Dynamic Resources v2
+# Laravel Dynamic Resources
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
-[![Total Downloads](https://img.shields.io/packagist/dt/benyaminrmb/laravel-dynamic-resources.svg)](https://packagist.org/packages/benyaminrmb/laravel-dynamic-resources)
-[![Tests](https://github.com/benyaminrmb/laravel-dynamic-resources/actions/workflows/test.yml/badge.svg)](https://github.com/benyaminrmb/laravel-dynamic-resources/actions)
-[![PHPStan](https://img.shields.io/badge/PHPStan-level%209-brightgreen.svg)](https://phpstan.org/)
+[![Tests](https://github.com/Benyaminrmb/laravel-dynamic-resources/actions/workflows/test.yml/badge.svg)](https://github.com/Benyaminrmb/laravel-dynamic-resources/actions/workflows/test.yml)
+[![License](https://img.shields.io/packagist/l/benyaminrmb/laravel-dynamic-resources.svg)](LICENSE.md)
 
-**Dynamic API resources with mode-based field selection for Laravel.** Define minimal, default, detailed modes and compose them on the fly. Reduce API payload sizes, improve performance, and give clients control over response structure.
+Composable, mode-based Laravel API resources with predictable field filtering and explicit, safe sparse fieldsets.
 
-## Features
+## Why use it?
 
-- **Mode-based field selection** - Define `minimal`, `default`, `detailed` modes and switch between them
-- **Composable modes** - Combine modes with `->withAvatar()->withPosts()`
-- **Field filtering** - Fine-grained control with `only()` and `except()`
-- **Nested resource support** - Mode inheritance through resource trees
-- **Request-based selection** - Let clients choose modes via query params: `?mode=minimal&fields=id,name`
-- **PHP Attributes** - Modern declarative syntax with `#[Field]` and `#[Mode]` attributes
-- **Artisan commands** - `make:dynamic-resource` and `resource:list`
-- **Strict type safety** - PHP 8.4, PHPStan level 9
+Laravel resources are excellent at describing one response shape. This package keeps that familiar API while making several intentional shapes easy to reuse:
+
+- Define `minimal`, `default`, `detailed`, or domain-specific modes in one resource.
+- Compose optional field groups with fluent or magic methods.
+- Narrow output on the server with `only()` and `except()`.
+- Explicitly opt in to client-selected modes and dotted sparse fields.
+- Keep nested modes and database queries predictable.
+- Preserve Laravel's native responses, pagination, wrapping, and metadata.
 
 ## Requirements
 
-- PHP 8.4+
-- Laravel 11.0+ or 12.0+
+| Package | Supported versions |
+|---|---|
+| PHP | 8.3, 8.4, 8.5 |
+| Laravel | 12, 13 |
 
 ## Installation
 
@@ -29,21 +30,21 @@
 composer require benyaminrmb/laravel-dynamic-resources
 ```
 
-Publish the config (optional):
+Laravel discovers the service provider automatically. Publish the optional configuration when you need different request parameter names or limits:
 
 ```bash
 php artisan vendor:publish --tag=dynamic-resources-config
 ```
 
-## Quick Start
+## Quick start
 
-### 1. Create a Resource
+Generate a resource:
 
 ```bash
 php artisan make:dynamic-resource UserResource --model=User
 ```
 
-Or create manually:
+Define its modes:
 
 ```php
 <?php
@@ -57,298 +58,182 @@ class UserResource extends DynamicResource
     public function fields(): array
     {
         return [
-            // Minimal mode - just IDs and names
-            'minimal' => [
-                'id',
-                'name',
-            ],
+            'minimal' => ['id', 'name'],
 
-            // Default mode - standard fields
-            'default' => [
-                'id',
-                'name',
-                'email',
-            ],
+            'default' => ['id', 'name', 'email'],
 
-            // Detailed mode - inherits default + adds more
-            'detailed' => fn() => [
-                ...$this->mode('default'),
+            'detailed' => fn (): array => [
+                ...$this->fieldsFrom('default'),
                 'bio' => $this->bio,
-                'created_at' => $this->created_at->toISOString(),
-                'posts' => PostResource::collection($this->whenLoaded('posts')),
+                'created_at' => $this->created_at?->toISOString(),
+                'posts' => PostResource::collection($this->whenLoaded('posts'))
+                    ->mode('minimal'),
             ],
 
-            // Composable modes - add these with withAvatar(), withPosts()
-            'avatar' => fn() => [
+            'avatar' => fn (): array => [
                 'avatar_url' => $this->avatar_url,
-            ],
-
-            'posts' => fn() => [
-                'posts' => PostResource::collection($this->whenLoaded('posts')),
             ],
         ];
     }
 }
 ```
 
-### 2. Use in Controllers
+Use explicit methods when discoverability matters:
 
 ```php
-class UserController extends Controller
-{
-    // Single resource with mode
-    public function show(User $user)
-    {
-        return UserResource::make($user)->detailed();
-    }
-
-    // Collection with mode
-    public function index()
-    {
-        return UserResource::collection(User::all())->minimal();
-    }
-
-    // Compose multiple modes
-    public function profile(User $user)
-    {
-        return UserResource::make($user)
-            ->minimal()
-            ->withAvatar()
-            ->withPosts();
-    }
-
-    // Field filtering
-    public function summary(User $user)
-    {
-        return UserResource::make($user)
-            ->default()
-            ->only(['id', 'name', 'email']);
-    }
-}
+return UserResource::make($user)
+    ->mode('minimal')
+    ->withMode('avatar');
 ```
 
-## Mode Composition
-
-Modes are composable. You can combine them dynamically:
+Or use the equivalent concise magic API:
 
 ```php
-// Start with minimal, add avatar and posts
-UserResource::make($user)
-    ->minimal()
-    ->withAvatar()
-    ->withPosts();
-
-// Remove a mode
-UserResource::make($user)
-    ->detailed()
-    ->withoutPosts();
-
-// Chain as many as you need
-UserResource::make($user)
-    ->minimal()
-    ->withAvatar()
-    ->withTimestamps()
-    ->withoutTimestamps()  // Changed our mind
-    ->withPosts();
-```
-
-## Field Filtering
-
-Fine-grained control over which fields appear:
-
-```php
-// Include only these fields
-UserResource::make($user)
-    ->default()
-    ->only(['id', 'name']);
-
-// Exclude these fields
-UserResource::make($user)
-    ->detailed()
-    ->except(['created_at', 'updated_at']);
-```
-
-## Mode Inheritance
-
-Reference other modes to build upon them:
-
-```php
-public function fields(): array
-{
-    return [
-        'minimal' => ['id', 'name'],
-
-        'default' => fn() => [
-            ...$this->mode('minimal'),  // Include all minimal fields
-            'email',
-        ],
-
-        'detailed' => fn() => [
-            ...$this->mode('default'),  // Include all default fields
-            'bio',
-            'created_at',
-        ],
-    ];
-}
-```
-
-## Conditional Fields
-
-Use Laravel's conditional helpers:
-
-```php
-public function fields(): array
-{
-    return [
-        'default' => fn() => [
-            'id',
-            'name',
-            'avatar' => $this->when($this->avatar !== null, $this->avatar),
-            'posts_count' => $this->whenCounted('posts'),
-            'posts' => $this->whenLoaded('posts', fn() => PostResource::collection($this->posts)),
-        ],
-    ];
-}
-```
-
-## Collections
-
-Collections inherit modes from the parent:
-
-```php
-// All users will use minimal mode
-UserResource::collection($users)->minimal();
-
-// Compose modes on collections too
-UserResource::collection($users)
+return UserResource::make($user)
     ->minimal()
     ->withAvatar();
-
-// Field filtering on collections
-UserResource::collection($users)
-    ->default()
-    ->only(['id', 'name']);
 ```
 
-## Request-Based Field Selection
-
-Enable the middleware to let clients control response structure:
+Both APIs also work on collections and paginators:
 
 ```php
-// routes/api.php
-Route::middleware('resource.fields')->group(function () {
-    Route::get('/users', [UserController::class, 'index']);
-});
+return UserResource::collection(
+    User::query()->paginate()
+)->mode('minimal');
 ```
 
-Now clients can use:
+## Defining fields
 
+Numeric entries lazily read the matching model attribute. Named entries may contain transformed values, closures, nested resources, or Laravel's conditional helpers:
+
+```php
+'default' => fn (): array => [
+    'id',
+    'display_name' => fn () => trim("{$this->first_name} {$this->last_name}"),
+    'avatar' => $this->when($this->avatar !== null, $this->avatar),
+    'posts_count' => $this->whenCounted('posts'),
+    'posts' => PostResource::collection($this->whenLoaded('posts')),
+],
 ```
-GET /api/users?mode=minimal
-GET /api/users?fields=id,name,email
-GET /api/users?mode=detailed&exclude=created_at
-```
 
-## Additional Data
+Use `fieldsFrom()` inside a field definition to inherit another mode. Circular inheritance throws a descriptive exception.
 
-Add metadata to responses:
+When composed modes define the same key, the later mode wins:
 
 ```php
 UserResource::make($user)
-    ->minimal()
-    ->additional([
-        'meta' => [
-            'version' => '2.0',
-            'generated_at' => now()->toISOString(),
-        ],
-    ]);
+    ->mode('minimal')
+    ->withMode('avatar')
+    ->withoutMode('avatar');
 ```
 
-## Artisan Commands
+An unknown explicit mode throws `UndefinedModeException` instead of returning an accidental empty response.
+
+## Server-side field filtering
+
+```php
+return UserResource::make($user)
+    ->mode('detailed')
+    ->only(['id', 'name', 'email']);
+
+return UserResource::collection($users)
+    ->mode('default')
+    ->except(['email']);
+```
+
+Calling `only()` clears an earlier `except()`, and vice versa.
+
+## Safe request selection
+
+Request selection is never automatic. A controller must explicitly call `fromRequest()`:
+
+```php
+public function show(Request $request, User $user): UserResource
+{
+    return UserResource::make($user)->fromRequest($request);
+}
+```
+
+Resources must separately allowlist every client-selectable mode:
+
+```php
+protected function requestableModes(): array
+{
+    return ['minimal', 'default', 'detailed'];
+}
+```
+
+Clients may then request:
+
+```text
+GET /api/users/1?mode=minimal
+GET /api/users/1?fields=id,name
+GET /api/users/1?exclude=email
+GET /api/users/1?fields=id,posts.id,posts.title
+```
+
+Field selection only narrows fields already present in the selected mode. It cannot add a field or override a server-side `only()`/`except()` restriction. Dotted paths are propagated to nested dynamic resources and collections.
+
+Malformed, excessively deep, oversized, or non-allowlisted requests throw `InvalidResourceQueryException`, which Laravel renders as HTTP 400. Limits and parameter names live in `config/dynamic-resources.php`.
+
+## Nested resources and relationships
+
+Every nested resource uses its own default mode unless you choose one explicitly:
+
+```php
+'posts' => PostResource::collection($this->whenLoaded('posts'))
+    ->mode('minimal'),
+```
+
+Resources never query the database. Eager-load relationships in the controller or query layer and use Laravel's conditional helpers:
+
+```php
+$user = User::query()->with('posts.author')->findOrFail($id);
+
+return UserResource::make($user)->mode('detailed');
+```
+
+This makes serialization free of hidden N+1 queries.
+
+## Responses, metadata, and pagination
+
+The package follows Laravel's normal resource response behavior. `additional()` belongs at the response top level and is not inserted into every item:
+
+```php
+return UserResource::collection(User::query()->paginate())
+    ->mode('minimal')
+    ->additional(['meta' => ['api_version' => 2]]);
+```
+
+Laravel continues to provide the `data`, `links`, and pagination `meta` structures.
+
+## Artisan commands
 
 ```bash
-# Create a new dynamic resource
 php artisan make:dynamic-resource UserResource --model=User
-
-# List all dynamic resources and their modes
-php artisan resource:list --modes
+php artisan make:dynamic-resource UserResource --modes=minimal,default,detailed
+php artisan dynamic-resources:list --modes
+php artisan dynamic-resources:list --json
 ```
 
-## Configuration
+Generated mode names must be lowercase kebab-case and must include `default`.
 
-Publish and customize:
+## Upgrading from v1
 
-```bash
-php artisan vendor:publish --tag=dynamic-resources-config
-```
+Version 2 is a deliberate cleanup and contains breaking changes. See [UPGRADE.md](UPGRADE.md) for exact replacements.
 
-Key options in `config/dynamic-resources.php`:
-
-```php
-return [
-    // Default mode when none specified
-    'default_mode' => 'default',
-
-    // Throw exceptions for undefined modes
-    'strict_mode' => env('DYNAMIC_RESOURCES_STRICT', false),
-
-    // Request-based field selection
-    'request_selection' => [
-        'enabled' => true,
-        'mode_parameter' => 'mode',
-        'fields_parameter' => 'fields',
-        'forbidden_modes' => ['admin', 'internal'],
-    ],
-];
-```
-
-## Migration from v1
-
-If upgrading from v1, the main changes are:
-
-1. Class renamed: `ModularResource` → `DynamicResource`
-2. Service provider renamed: `LaravelModularResourcesServiceProvider` → `DynamicResourceServiceProvider`
-3. PHP 8.4 required (was 8.2)
-
-```php
-// v1
-use Benyaminrmb\LaravelDynamicResources\ModularResource;
-
-// v2
-use Benyaminrmb\LaravelDynamicResources\DynamicResource;
-```
-
-## Testing
+## Quality and support
 
 ```bash
 composer test
-```
-
-## Static Analysis
-
-```bash
+composer test:coverage
 composer analyse
+composer format:check
+composer check
 ```
 
-## Code Style
-
-```bash
-composer format
-```
-
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security
-
-If you discover any security-related issues, please email benyaminrmb@gmail.com instead of using the issue tracker.
-
-## Credits
-
-- [Benyamin Rmb](https://github.com/benyaminrmb)
-- [All Contributors](../../contributors)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidance and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+Laravel Dynamic Resources is open-source software licensed under the [MIT license](LICENSE.md).

@@ -11,6 +11,11 @@ use Benyaminrmb\LaravelDynamicResources\DynamicResource;
  */
 class UserResource extends DynamicResource
 {
+    protected function requestableModes(): array
+    {
+        return ['minimal', 'default', 'detailed'];
+    }
+
     public function fields(): array
     {
         return [
@@ -25,28 +30,28 @@ class UserResource extends DynamicResource
                 'email',
             ],
 
-            'detailed' => fn() => [
-                ...$this->mode('default'),
+            'detailed' => fn () => [
+                ...$this->fieldsFrom('default'),
                 'bio' => $this->bio,
                 'created_at' => $this->created_at?->toISOString(),
                 'posts' => PostResource::collection($this->whenLoaded('posts')),
             ],
 
-            'timestamps' => fn() => [
+            'timestamps' => fn () => [
                 'created_at' => $this->created_at?->toISOString(),
                 'updated_at' => $this->updated_at?->toISOString(),
             ],
 
-            'avatar' => fn() => [
+            'avatar' => fn () => [
                 'avatar' => $this->avatar,
             ],
 
-            'posts' => fn() => [
+            'posts' => fn () => [
                 'posts' => PostResource::collection($this->whenLoaded('posts')),
             ],
 
-            'profile' => fn() => [
-                'profile' => $this->whenLoaded('profile', fn() => ProfileResource::make($this->profile)),
+            'profile' => fn () => [
+                'profile' => $this->whenLoaded('profile', fn () => ProfileResource::make($this->profile)),
             ],
         ];
     }

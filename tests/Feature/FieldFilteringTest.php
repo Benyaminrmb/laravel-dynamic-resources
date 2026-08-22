@@ -144,7 +144,7 @@ it('handles except() with non-existent fields gracefully', function (): void {
         ->toHaveKey('email', 'john@example.com');
 });
 
-it('merges additional data with field filtering', function (): void {
+it('keeps additional response data separate from field filtering', function (): void {
     $user = new User([
         'id' => 1,
         'name' => 'John Doe',
@@ -153,13 +153,13 @@ it('merges additional data with field filtering', function (): void {
 
     $result = UserResource::make($user)
         ->default()
+        ->only(['id'])
         ->additional(['meta' => ['timestamp' => '2024-01-01']])
-        ->toArray(request());
+        ->response()
+        ->getData(true);
 
     expect($result)
-        ->toHaveKey('id', 1)
-        ->toHaveKey('name', 'John Doe')
-        ->toHaveKey('email', 'john@example.com')
         ->toHaveKey('meta')
-        ->and($result['meta'])->toBe(['timestamp' => '2024-01-01']);
+        ->and($result['meta'])->toBe(['timestamp' => '2024-01-01'])
+        ->and($result['data'])->toBe(['id' => 1]);
 });

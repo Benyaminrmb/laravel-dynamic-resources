@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Models\User;
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Resources\UserResource;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 it('applies mode to all collection items', function (): void {
     $users = collect([
@@ -82,7 +83,7 @@ it('applies field filtering to collection', function (): void {
         ->not->toHaveKey('email');
 });
 
-it('applies additional data to collection', function (): void {
+it('keeps additional collection data at the response top level', function (): void {
     $users = collect([
         new User(['id' => 1, 'name' => 'Alice']),
     ]);
@@ -90,10 +91,12 @@ it('applies additional data to collection', function (): void {
     $result = UserResource::collection($users)
         ->minimal()
         ->additional(['meta' => 'data'])
-        ->toArray(request());
+        ->response()
+        ->getData(true);
 
-    expect($result[0])
-        ->toHaveKey('meta', 'data');
+    expect($result)
+        ->toHaveKey('meta', 'data')
+        ->and($result['data'][0])->not->toHaveKey('meta');
 });
 
 it('works with array input', function (): void {
@@ -119,4 +122,24 @@ it('filters out null items', function (): void {
     expect($result)->toHaveCount(2);
     expect($result[0]['name'])->toBe('Alice');
     expect($result[1]['name'])->toBe('Bob');
+});
+
+it('preserves native paginator links and metadata', function (): void {
+    $users = collect([
+        new User(['id' => 1, 'name' => 'Alice']),
+        new User(['id' => 2, 'name' => 'Bob']),
+    ]);
+    $paginator = new LengthAwarePaginator($users, 10, 2, 1, [
+        'path' => 'https://example.test/users',
+    ]);
+
+    $response = UserResource::collection($paginator)
+        ->mode('minimal')
+        ->response()
+        ->getData(true);
+
+    expect($response)
+        ->toHaveKeys(['data', 'links', 'meta'])
+        ->and($response['data'])->toHaveCount(2)
+        ->and($response['meta']['total'])->toBe(10);
 });

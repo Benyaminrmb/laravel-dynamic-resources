@@ -1,73 +1,33 @@
 # Contributing
 
-Thanks for considering contributing to Laravel Dynamic Resources! Here are a few guidelines to help you get started.
+Thank you for helping improve Laravel Dynamic Resources.
 
-## Prerequisites
+## Development setup
 
-- PHP 8.2 or higher
-- Composer
-- Git
+You need PHP 8.3 or newer, Composer, and Git.
 
-## Getting Started
-
-1. Fork the repository
-2. Clone your fork
-3. Create a new branch for your feature or bugfix
-4. Install dependencies:
 ```bash
+git clone https://github.com/Benyaminrmb/laravel-dynamic-resources.git
+cd laravel-dynamic-resources
 composer install
+composer check
 ```
 
-## Development Workflow
+## Pull requests
 
-1. Make your changes
-2. Add tests for any new functionality
-3. Run the test suite:
-```bash
-composer test
-```
-4. Run static analysis:
-```bash
-composer analyse
-```
-5. Format your code:
-```bash
-composer format
-```
-6. Commit your changes with a descriptive commit message
-7. Push to your fork
-8. Submit a pull request
+- Keep changes focused and explain the user-visible behavior.
+- Add or update tests for every behavior change and regression fix.
+- Update README and upgrade guidance when the public API changes.
+- Preserve Laravel-native resource behavior unless the package explicitly documents a difference.
+- Never add serialization-time database queries.
+- Run `composer check` before opening the pull request.
 
-## Pull Request Guidelines
+The project uses Pest, PHPStan at its maximum level, and Laravel Pint. CI tests PHP 8.3–8.5 against Laravel 12 and 13, including lowest supported dependencies.
 
-- Update the README.md if necessary
-- Add tests for new features
-- Follow PSR-12 coding standards
-- Keep your PR focused on a single feature/fix
-- Write a clear PR description explaining your changes
+## Compatibility changes
 
-## Code Style
+Changes to supported PHP or Laravel versions, public methods, query semantics, response shapes, exceptions, or generated files are breaking changes. Describe them in `CHANGELOG.md` and `UPGRADE.md`.
 
-This project uses Laravel Pint for code formatting. Before submitting your PR, run:
+## Security reports
 
-```bash
-composer format
-```
-
-## Running Tests
-
-```bash
-composer test
-```
-
-## Static Analysis
-
-The project uses PHPStan for static analysis. Run:
-
-```bash
-composer analyse
-```
-
-## Questions or Problems?
-
-Feel free to open an issue if you have any questions or run into problems.
+Do not open public issues for vulnerabilities. Follow [SECURITY.md](SECURITY.md).

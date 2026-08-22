@@ -12,7 +12,7 @@ use RuntimeException;
 class CircularReferenceException extends RuntimeException implements DynamicResourceException
 {
     /**
-     * @param list<string> $chain The reference chain showing the circular path
+     * @param  list<string>  $chain  The reference chain showing the circular path
      */
     public function __construct(
         public readonly array $chain,
@@ -27,7 +27,7 @@ class CircularReferenceException extends RuntimeException implements DynamicReso
 
     public function getSuggestion(): ?string
     {
-        return 'Check for resources that reference each other. ' .
+        return 'Check for resources that reference each other. '.
                'Consider using whenLoaded() to prevent infinite recursion.';
     }
 

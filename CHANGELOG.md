@@ -1,86 +1,42 @@
 # Changelog
 
-All notable changes to `laravel-dynamic-resources` will be documented in this file.
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and releases follow [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - 2024-11-17
+## [Unreleased]
+
+## [2.0.0] - Unreleased
 
 ### Added
-- ✨ New modular mode system with chainable methods
-- 🔌 Support for dynamic mode combinations using `with` and `without` prefixes
-- 🔗 Ability to combine multiple modes in both single resources and collections
-- 💫 Automatic mode inheritance for nested resources
-- 📚 Comprehensive documentation for new features
+
+- Explicit `mode()`, `withMode()`, and `withoutMode()` APIs alongside magic mode methods.
+- Explicit `fromRequest()` sparse field selection with per-resource mode allowlists.
+- Bounded dotted field and exclusion paths for nested resources and collections.
+- HTTP 400 errors for invalid resource query parameters.
+- Laravel 12 and 13 support across PHP 8.3, 8.4, and 8.5.
+- Circular mode-inheritance detection and comprehensive CI quality checks.
 
 ### Changed
-- 🏗️ Refactored mode handling to support multiple active modes
-- 🔄 Updated `fields()` method to use array keys for modes
-- ⚡ Improved performance by merging fields from active modes
-- 🔧 Modified magic method handling for better extensibility
 
-### Breaking Changes
-- Changed the structure of the `fields()` method to use mode names as array keys
-- Removed single mode limitation in favor of multiple mode support
-- Updated method signatures for better type safety and PHP 8.2 compatibility
+- Nested resources now retain their own default or explicitly selected mode.
+- Collections now preserve Laravel-native response metadata and pagination behavior.
+- `additional()` data is emitted at the response top level.
+- Mode inheritance inside `fields()` now uses `fieldsFrom()`.
+- `resource:list` is now `dynamic-resources:list`.
+- Runtime dependencies use focused Illuminate components instead of `laravel/framework`.
 
-### Migration Guide
+### Removed
 
-#### Before (0.1.x)
-```php
-protected function fields(): array
-{
-    return match($this->mode) {
-        'minimal' => [
-            'id',
-            'username',
-        ],
-        'minimal-with-avatar' => [
-            'id',
-            'username',
-            'profile',
-        ],
-        default => [
-            'id',
-            'username',
-        ]
-    };
-}
-```
+- Legacy `ModularResource`, `ModularResourceCollection`, and legacy service provider.
+- Middleware-driven query selection and the `resource.fields` middleware alias.
+- Unimplemented attributes, transformation contracts, automatic relationship loading, and fake cache/debug configuration.
+- Laravel 11 and PHP versions below 8.3.
 
-#### After (0.1.x)
-```php
-protected function fields(): array
-{
-    return [
-        'minimal' => [
-            'id',
-            'username',
-        ],
-        'avatar' => [
-            'profile' => UploadResource::make($this->channel->profile)->minimal(),
-        ],
-        'default' => [
-            'id',
-            'username',
-        ]
-    ];
-}
-```
+## [0.1.5] - 2024-11-17
 
-#### Usage Changes
-```php
-// Old way (0.0.x)
-UserResource::make($user)->setMode('minimal-with-avatar');
+### Added
 
-// New way (0.1.x)
-UserResource::make($user)
-    ->minimal()
-    ->withAvatar();
-```
+- Original composable mode API and nested resource support.
 
-### Fixed
-- 🐛 Fixed mode inheritance in nested resources
-- 🔒 Improved type safety throughout the codebase
-- ♻️ Better handling of default modes when others are removed
-- 🧹 Cleaned up method signatures for better IDE support
-
-For more details about the changes and new features, please refer to the updated README.md file.
+[Unreleased]: https://github.com/Benyaminrmb/laravel-dynamic-resources/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Benyaminrmb/laravel-dynamic-resources/compare/v0.1.5...v2.0.0
+[0.1.5]: https://github.com/Benyaminrmb/laravel-dynamic-resources/releases/tag/v0.1.5

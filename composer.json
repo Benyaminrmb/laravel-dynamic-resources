@@ -1,28 +1,42 @@
 {
+  "$schema": "https://getcomposer.org/schema.json",
   "name": "benyaminrmb/laravel-dynamic-resources",
-  "description": "Dynamic API resources with mode-based field selection for Laravel. Define minimal, default, detailed modes and compose them on the fly.",
+  "description": "Composable, mode-based API resources and safe sparse fieldsets for Laravel.",
   "keywords": [
-    "laravel",
     "api",
-    "resources",
-    "json",
-    "rest",
     "dynamic",
-    "modes",
+    "json",
+    "laravel",
+    "resources",
     "sparse-fieldsets"
   ],
+  "homepage": "https://github.com/Benyaminrmb/laravel-dynamic-resources",
   "type": "library",
   "license": "MIT",
+  "authors": [
+    {
+      "name": "Benyamin Rmb",
+      "email": "benyaminrmb@gmail.com"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/Benyaminrmb/laravel-dynamic-resources/issues",
+    "source": "https://github.com/Benyaminrmb/laravel-dynamic-resources"
+  },
   "require": {
-    "php": "^8.4",
-    "laravel/framework": "^11.0|^12.0"
+    "php": "^8.3",
+    "illuminate/console": "^12.0|^13.0",
+    "illuminate/filesystem": "^12.0|^13.0",
+    "illuminate/http": "^12.0|^13.0",
+    "illuminate/support": "^12.0|^13.0",
+    "symfony/http-kernel": "^7.2|^8.0"
   },
   "require-dev": {
     "larastan/larastan": "^3.0",
-    "laravel/pint": "^1.18",
-    "orchestra/testbench": "^9.0|^10.0",
-    "pestphp/pest": "^3.0",
-    "pestphp/pest-plugin-laravel": "^3.0",
+    "laravel/pint": "^1.27",
+    "orchestra/testbench": "^10.0|^11.0",
+    "pestphp/pest": "^4.0",
+    "pestphp/pest-plugin-laravel": "^4.0",
     "phpstan/phpstan": "^2.0"
   },
   "autoload": {
@@ -35,18 +49,19 @@
       "Benyaminrmb\\LaravelDynamicResources\\Tests\\": "tests/"
     }
   },
-  "authors": [
-    {
-      "name": "Benyamin Rmb",
-      "email": "benyaminrmb@gmail.com"
-    }
-  ],
   "scripts": {
-    "test": "vendor/bin/pest",
-    "test:coverage": "vendor/bin/pest --coverage --min=80",
+    "analyse": "vendor/bin/phpstan analyse --memory-limit=512M",
+    "check": [
+      "@composer:validate",
+      "@format:check",
+      "@analyse",
+      "@test"
+    ],
     "format": "vendor/bin/pint",
     "format:check": "vendor/bin/pint --test",
-    "analyse": "vendor/bin/phpstan analyse --memory-limit=512M"
+    "test": "vendor/bin/pest",
+    "test:coverage": "vendor/bin/pest --coverage --min=80",
+    "composer:validate": "composer validate --strict --no-check-publish"
   },
   "extra": {
     "laravel": {
@@ -55,14 +70,14 @@
       ]
     }
   },
-  "minimum-stability": "stable",
-  "prefer-stable": true,
   "config": {
-    "sort-packages": true,
-    "preferred-install": "dist",
-    "optimize-autoloader": true,
     "allow-plugins": {
       "pestphp/pest-plugin": true
-    }
-  }
+    },
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }

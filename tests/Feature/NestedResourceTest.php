@@ -93,6 +93,7 @@ describe('Nested Resources', function (): void {
                     'created_at' => now(),
                 ]);
                 $post->setRelation('user', $author);
+
                 return $post;
             })(),
             (function () use ($author) {
@@ -103,6 +104,7 @@ describe('Nested Resources', function (): void {
                     'created_at' => now(),
                 ]);
                 $post->setRelation('user', $author);
+
                 return $post;
             })(),
         ]);

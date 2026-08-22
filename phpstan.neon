@@ -2,20 +2,9 @@ includes:
     - vendor/larastan/larastan/extension.neon
 
 parameters:
-    level: 9
+    level: max
     paths:
         - src
     excludePaths:
         - src/stubs
-    checkMissingIterableValueType: true
-    checkGenericClassInNonGenericObjectType: true
-    reportUnmatchedIgnoredErrors: false
-    ignoreErrors:
-        # Allow dynamic property access on resources (for model attributes)
-        -
-            message: '#Access to an undefined property#'
-            path: src/DynamicResource.php
-        # Allow mixed return from closures in field definitions
-        -
-            message: '#Method .+::fields\(\) return type has no value type#'
-            path: src/*
+    reportUnmatchedIgnoredErrors: true

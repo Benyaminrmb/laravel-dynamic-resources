@@ -12,9 +12,9 @@ use RuntimeException;
 class UndefinedModeException extends RuntimeException implements DynamicResourceException
 {
     /**
-     * @param string $mode The undefined mode name
-     * @param class-string $resourceClass The resource class
-     * @param list<string> $availableModes List of available modes
+     * @param  string  $mode  The undefined mode name
+     * @param  class-string  $resourceClass  The resource class
+     * @param  list<string>  $availableModes  List of available modes
      */
     public function __construct(
         public readonly string $mode,
