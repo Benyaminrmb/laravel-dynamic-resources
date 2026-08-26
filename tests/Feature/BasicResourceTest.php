@@ -29,7 +29,7 @@ it('returns minimal mode fields', function (): void {
         'email' => 'john@example.com',
     ]);
 
-    $result = UserResource::make($user)->minimal()->toArray(request());
+    $result = UserResource::make($user)->view('minimal')->toArray(request());
 
     expect($result)
         ->toHaveKey('id', 1)
@@ -46,7 +46,7 @@ it('returns detailed mode fields with inheritance', function (): void {
         'created_at' => now(),
     ]);
 
-    $result = UserResource::make($user)->detailed()->toArray(request());
+    $result = UserResource::make($user)->view('detailed')->toArray(request());
 
     expect($result)
         ->toHaveKey('id', 1)
@@ -70,7 +70,7 @@ it('handles null attribute values', function (): void {
         'bio' => null,
     ]);
 
-    $result = UserResource::make($user)->detailed()->toArray(request());
+    $result = UserResource::make($user)->view('detailed')->toArray(request());
 
     expect($result)
         ->toHaveKey('bio')
@@ -85,7 +85,7 @@ it('keeps additional data at the response top level', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->minimal()
+        ->view('minimal')
         ->additional(['meta' => ['version' => '2.0']])
         ->response()
         ->getData(true);
@@ -101,9 +101,9 @@ it('returns available modes', function (): void {
     $user = new User(['id' => 1, 'name' => 'Test']);
     $resource = UserResource::make($user);
 
-    expect($resource->getAvailableModes())
+    expect($resource->getAvailableViews())
         ->toContain('minimal')
-        ->toContain('default')
+        ->toContain('standard')
         ->toContain('detailed')
         ->toContain('timestamps')
         ->toContain('avatar')

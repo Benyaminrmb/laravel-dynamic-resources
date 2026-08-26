@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Benyaminrmb\LaravelDynamicResources\Console\Commands;
 
+use Benyaminrmb\LaravelDynamicResources\Services\ViewSymbolGenerator;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -18,7 +19,7 @@ use Symfony\Component\Console\Input\InputOption;
  * ```bash
  * php artisan make:dynamic-resource UserResource
  * php artisan make:dynamic-resource UserResource --model=User
- * php artisan make:dynamic-resource UserResource --modes=minimal,default,detailed
+ * php artisan make:dynamic-resource UserResource --views=minimal,default,detailed
  * ```
  */
 #[AsCommand(name: 'make:dynamic-resource')]
@@ -95,13 +96,13 @@ class MakeDynamicResourceCommand extends GeneratorCommand
             $stub,
         );
 
-        $modes = $this->option('modes');
+        $views = $this->option('views');
 
-        if (! is_string($modes)) {
-            throw new InvalidArgumentException('The modes option must be a comma-separated string.');
+        if (! is_string($views)) {
+            throw new InvalidArgumentException('The views option must be a comma-separated string.');
         }
 
-        return $this->replaceModes($stub, $modes);
+        return $this->replaceViews($stub, $views);
     }
 
     /**
@@ -126,41 +127,45 @@ class MakeDynamicResourceCommand extends GeneratorCommand
     }
 
     /**
-     * Replace the modes placeholder.
+     * Replace the view placeholders.
      */
-    protected function replaceModes(string $stub, string $modes): string
+    protected function replaceViews(string $stub, string $views): string
     {
-        $modesList = array_values(array_unique(array_filter(array_map('trim', explode(',', $modes)))));
+        $viewsList = array_values(array_unique(array_filter(array_map('trim', explode(',', $views)))));
 
-        if (! in_array('default', $modesList, true)) {
-            throw new InvalidArgumentException('Generated resources must include a default mode.');
+        if (! in_array('default', $viewsList, true)) {
+            throw new InvalidArgumentException('Generated resources must include a default view.');
         }
 
-        foreach ($modesList as $mode) {
-            if (preg_match('/^[a-z][a-z0-9-]*$/', $mode) !== 1) {
-                throw new InvalidArgumentException(sprintf("Invalid mode name '%s'.", $mode));
+        foreach ($viewsList as $view) {
+            if (preg_match('/^[a-z][a-z0-9-]*$/', $view) !== 1) {
+                throw new InvalidArgumentException(sprintf("Invalid view name '%s'.", $view));
             }
         }
 
-        $modesCode = $this->generateModesCode($modesList);
+        $viewsCode = $this->generateViewsCode($viewsList);
+        $symbols = app(ViewSymbolGenerator::class)->region($viewsList);
 
-        return str_replace('{{ modes }}', $modesCode, $stub);
+        return str_replace(['{{ views }}', '{{ viewSymbols }}'], [$viewsCode, $symbols], $stub);
     }
 
     /**
-     * Generate the modes array code.
+     * Generate the views array code.
      *
-     * @param  list<string>  $modes
+     * @param  list<string>  $views
      */
-    protected function generateModesCode(array $modes): string
+    protected function generateViewsCode(array $views): string
     {
         $lines = [];
 
-        foreach ($modes as $mode) {
+        foreach ($views as $view) {
+            $method = Str::camel($view).'Fields';
+            $attribute = $view === 'default' ? '#[View(default: true)]' : '#[View]';
             $lines[] = sprintf(
-                "            '%s' => [\n                'id',\n                // Add fields for %s mode\n            ],",
-                $mode,
-                $mode
+                "    %s\n    protected function %s(): array\n    {\n        return [\n            'id',\n            // Add fields for the %s view.\n        ];\n    }",
+                $attribute,
+                $method,
+                $view,
             );
         }
 
@@ -176,7 +181,7 @@ class MakeDynamicResourceCommand extends GeneratorCommand
     {
         return [
             ['model', 'm', InputOption::VALUE_OPTIONAL, 'The model class this resource represents'],
-            ['modes', null, InputOption::VALUE_OPTIONAL, 'Comma-separated list of modes to generate', 'minimal,default,detailed'],
+            ['views', null, InputOption::VALUE_OPTIONAL, 'Comma-separated list of views to generate', 'minimal,default,detailed'],
             ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the resource already exists'],
         ];
     }

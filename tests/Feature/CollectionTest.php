@@ -12,7 +12,7 @@ it('applies mode to all collection items', function (): void {
         new User(['id' => 2, 'name' => 'Bob', 'email' => 'bob@example.com']),
     ]);
 
-    $result = UserResource::collection($users)->minimal()->toArray(request());
+    $result = UserResource::collection($users)->view('minimal')->toArray(request());
 
     expect($result)->toHaveCount(2);
     expect($result[0])
@@ -26,7 +26,7 @@ it('applies mode to all collection items', function (): void {
 });
 
 it('handles empty collection', function (): void {
-    $result = UserResource::collection(collect())->minimal()->toArray(request());
+    $result = UserResource::collection(collect())->view('minimal')->toArray(request());
 
     expect($result)->toBe([]);
 });
@@ -36,7 +36,7 @@ it('handles single item collection', function (): void {
         new User(['id' => 1, 'name' => 'Alice', 'email' => 'alice@example.com']),
     ]);
 
-    $result = UserResource::collection($users)->minimal()->toArray(request());
+    $result = UserResource::collection($users)->view('minimal')->toArray(request());
 
     expect($result)->toHaveCount(1);
     expect($result[0])
@@ -56,8 +56,8 @@ it('applies composed modes to collection', function (): void {
     ]);
 
     $result = UserResource::collection($users)
-        ->minimal()
-        ->withAvatar()
+        ->view('minimal')
+        ->withView('avatar')
         ->toArray(request());
 
     expect($result[0])
@@ -73,7 +73,7 @@ it('applies field filtering to collection', function (): void {
     ]);
 
     $result = UserResource::collection($users)
-        ->default()
+        ->view('standard')
         ->only(['id', 'name'])
         ->toArray(request());
 
@@ -89,7 +89,7 @@ it('keeps additional collection data at the response top level', function (): vo
     ]);
 
     $result = UserResource::collection($users)
-        ->minimal()
+        ->view('minimal')
         ->additional(['meta' => 'data'])
         ->response()
         ->getData(true);
@@ -105,7 +105,7 @@ it('works with array input', function (): void {
         new User(['id' => 2, 'name' => 'Bob']),
     ];
 
-    $result = UserResource::collection($users)->minimal()->toArray(request());
+    $result = UserResource::collection($users)->view('minimal')->toArray(request());
 
     expect($result)->toHaveCount(2);
 });
@@ -117,7 +117,7 @@ it('filters out null items', function (): void {
         new User(['id' => 2, 'name' => 'Bob']),
     ]);
 
-    $result = UserResource::collection($users)->minimal()->toArray(request());
+    $result = UserResource::collection($users)->view('minimal')->toArray(request());
 
     expect($result)->toHaveCount(2);
     expect($result[0]['name'])->toBe('Alice');
@@ -134,7 +134,7 @@ it('preserves native paginator links and metadata', function (): void {
     ]);
 
     $response = UserResource::collection($paginator)
-        ->mode('minimal')
+        ->view('minimal')
         ->response()
         ->getData(true);
 

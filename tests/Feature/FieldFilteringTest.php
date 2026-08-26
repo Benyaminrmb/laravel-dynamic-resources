@@ -13,7 +13,7 @@ it('includes only specified fields with only()', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->default()
+        ->view('standard')
         ->only(['id', 'name'])
         ->toArray(request());
 
@@ -31,7 +31,7 @@ it('excludes specified fields with except()', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->default()
+        ->view('standard')
         ->except(['email'])
         ->toArray(request());
 
@@ -48,7 +48,7 @@ it('only() clears except() and vice versa', function (): void {
         'email' => 'john@example.com',
     ]);
 
-    $resource = UserResource::make($user)->default();
+    $resource = UserResource::make($user)->view('standard');
 
     $resource->except(['email']);
     expect($resource->getExceptFields())->toBe(['email']);
@@ -69,9 +69,9 @@ it('filters fields across composed modes', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withTimestamps()
+        ->view('minimal')
+        ->withView('avatar')
+        ->withView('timestamps')
         ->only(['id', 'avatar', 'created_at'])
         ->toArray(request());
 
@@ -93,9 +93,9 @@ it('except() filters across composed modes', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withTimestamps()
+        ->view('minimal')
+        ->withView('avatar')
+        ->withView('timestamps')
         ->except(['updated_at', 'name'])
         ->toArray(request());
 
@@ -115,7 +115,7 @@ it('handles only() with non-existent fields gracefully', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->default()
+        ->view('standard')
         ->only(['id', 'nonexistent'])
         ->toArray(request());
 
@@ -134,7 +134,7 @@ it('handles except() with non-existent fields gracefully', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->default()
+        ->view('standard')
         ->except(['nonexistent'])
         ->toArray(request());
 
@@ -152,7 +152,7 @@ it('keeps additional response data separate from field filtering', function (): 
     ]);
 
     $result = UserResource::make($user)
-        ->default()
+        ->view('standard')
         ->only(['id'])
         ->additional(['meta' => ['timestamp' => '2024-01-01']])
         ->response()

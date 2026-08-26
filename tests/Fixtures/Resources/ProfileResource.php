@@ -4,30 +4,26 @@ declare(strict_types=1);
 
 namespace Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Resources;
 
+use Benyaminrmb\LaravelDynamicResources\Attributes\View;
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
 
-/**
- * Test ProfileResource.
- */
 class ProfileResource extends DynamicResource
 {
-    public function fields(): array
+    #[View]
+    protected function minimalFields(): array
     {
-        return [
-            'minimal' => [
-                'avatar_url',
-            ],
+        return ['avatar_url'];
+    }
 
-            'default' => [
-                'avatar_url',
-                'bio',
-            ],
+    #[View(default: true)]
+    protected function standardFields(): array
+    {
+        return ['avatar_url', 'bio'];
+    }
 
-            'detailed' => [
-                'avatar_url',
-                'bio',
-                'website',
-            ],
-        ];
+    #[View]
+    protected function detailedFields(): array
+    {
+        return ['avatar_url', 'bio', 'website'];
     }
 }

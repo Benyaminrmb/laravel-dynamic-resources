@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Benyaminrmb\LaravelDynamicResources\Collections;
 
 use Benyaminrmb\LaravelDynamicResources\Concerns\HasFieldFiltering;
-use Benyaminrmb\LaravelDynamicResources\Concerns\HasModes;
+use Benyaminrmb\LaravelDynamicResources\Concerns\HasViews;
 use Benyaminrmb\LaravelDynamicResources\DTO\FieldSelection;
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
-use Benyaminrmb\LaravelDynamicResources\Services\ResourceQueryParser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\Resources\MissingValue;
@@ -17,7 +16,7 @@ use Override;
 class DynamicResourceCollection extends ResourceCollection
 {
     use HasFieldFiltering;
-    use HasModes;
+    use HasViews;
 
     /** @var class-string<DynamicResource> */
     private readonly string $resourceClass;
@@ -31,34 +30,28 @@ class DynamicResourceCollection extends ResourceCollection
     {
         $this->resourceClass = $resourceClass;
         $this->collects = $resourceClass;
-
         parent::__construct($resource);
     }
 
-    public function defaultMode(): string
+    public function defaultView(): string
     {
-        return (new $this->resourceClass(null))->defaultMode();
+        return (new $this->resourceClass(null))->defaultView();
     }
 
-    /** @return array<string, array<int|string, mixed>|\Closure> */
-    public function fields(): array
+    /** @return list<string> */
+    public function getAvailableViews(): array
     {
-        return (new $this->resourceClass(null))->fields();
+        return (new $this->resourceClass(null))->getAvailableViews();
     }
 
     public function fromRequest(?Request $request = null): static
     {
-        $request ??= request();
-        $selection = app(ResourceQueryParser::class)->parse($request);
-
-        if ($selection->mode !== null) {
-            $probe = new $this->resourceClass(null);
-            $probe->fromRequest($request);
-            $this->mode($selection->mode);
+        $probe = new $this->resourceClass(null);
+        $probe->fromRequest($request);
+        if ($probe->hasViewExplicitlySet()) {
+            $this->view($probe->getActiveViews());
         }
-
-        $this->requestOnly = $selection->only;
-        $this->requestExcept = $selection->except;
+        $probe->passRequestSelectionTo($this);
 
         return $this;
     }
@@ -71,40 +64,26 @@ class DynamicResourceCollection extends ResourceCollection
             return [];
         }
 
-        return array_values($this->collection
-            ->map(function (mixed $item) use ($request): ?array {
-                if ($item === null || $item instanceof MissingValue) {
-                    return null;
-                }
+        return array_values($this->collection->map(function (mixed $item) use ($request): ?array {
+            if ($item === null || $item instanceof MissingValue) {
+                return null;
+            }
+            $resource = $item instanceof $this->resourceClass ? $item : new $this->resourceClass($item);
+            if ($resource->resource === null || $resource->resource instanceof MissingValue) {
+                return null;
+            }
+            if ($this->hasViewExplicitlySet() && ! $resource->hasViewExplicitlySet()) {
+                $resource->inheritViews($this->getActiveViews(), true);
+            }
+            if ($this->onlyFields !== []) {
+                $resource->only($this->onlyFields);
+            } elseif ($this->exceptFields !== []) {
+                $resource->except($this->exceptFields);
+            }
+            $resource->inheritRequestSelection($this->requestOnly, $this->requestExcept);
 
-                $resource = $item instanceof $this->resourceClass ? $item : new $this->resourceClass($item);
-
-                if ($resource->resource === null || $resource->resource instanceof MissingValue) {
-                    return null;
-                }
-
-                if ($this->hasModeExplicitlySet() && ! $resource->hasModeExplicitlySet()) {
-                    $resource->inheritModes($this->getActiveModes(), true);
-                }
-
-                if ($this->onlyFields !== []) {
-                    $resource->only($this->onlyFields);
-                } elseif ($this->exceptFields !== []) {
-                    $resource->except($this->exceptFields);
-                }
-
-                $resource->inheritRequestSelection($this->requestOnly, $this->requestExcept);
-
-                return $resource->toArray($request);
-            })
-            ->filter(static fn (?array $item): bool => $item !== null)
-            ->all());
-    }
-
-    /** @param array<int|string, mixed> $parameters */
-    public function __call($method, $parameters)
-    {
-        return $this->handleModeCall((string) $method, array_values($parameters));
+            return $resource->toArray($request);
+        })->filter(static fn (?array $item): bool => $item !== null)->all());
     }
 
     /** @internal */

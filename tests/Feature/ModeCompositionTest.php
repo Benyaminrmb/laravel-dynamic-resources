@@ -16,9 +16,9 @@ it('composes multiple modes with withX methods', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withTimestamps()
+        ->view('minimal')
+        ->withView('avatar')
+        ->withView('timestamps')
         ->toArray(request());
 
     expect($result)
@@ -39,9 +39,9 @@ it('removes modes with withoutX methods', function (): void {
     ]);
 
     $result = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withoutAvatar()
+        ->view('minimal')
+        ->withView('avatar')
+        ->withoutView('avatar')
         ->toArray(request());
 
     expect($result)
@@ -55,33 +55,33 @@ it('tracks active modes correctly', function (): void {
     $user = new User(['id' => 1, 'name' => 'Test']);
     $resource = UserResource::make($user);
 
-    expect($resource->getActiveModes())->toBe(['default']);
+    expect($resource->getActiveViews())->toBe(['standard']);
 
-    $resource->minimal();
-    expect($resource->getActiveModes())->toBe(['minimal']);
+    $resource->view('minimal');
+    expect($resource->getActiveViews())->toBe(['minimal']);
 
-    $resource->withAvatar();
-    expect($resource->getActiveModes())->toBe(['minimal', 'avatar']);
+    $resource->withView('avatar');
+    expect($resource->getActiveViews())->toBe(['minimal', 'avatar']);
 
-    $resource->withoutMinimal();
-    expect($resource->getActiveModes())->toBe(['avatar']);
+    $resource->withoutView('minimal');
+    expect($resource->getActiveViews())->toBe(['avatar']);
 });
 
 it('falls back to default when all modes removed', function (): void {
     $user = new User(['id' => 1, 'name' => 'Test']);
-    $resource = UserResource::make($user)->minimal()->withoutMinimal();
+    $resource = UserResource::make($user)->view('minimal')->withoutView('minimal');
 
-    expect($resource->getActiveModes())->toBe(['default']);
+    expect($resource->getActiveViews())->toBe(['standard']);
 });
 
 it('marks mode as explicitly set', function (): void {
     $user = new User(['id' => 1, 'name' => 'Test']);
     $resource = UserResource::make($user);
 
-    expect($resource->hasModeExplicitlySet())->toBeFalse();
+    expect($resource->hasViewExplicitlySet())->toBeFalse();
 
-    $resource->minimal();
-    expect($resource->hasModeExplicitlySet())->toBeTrue();
+    $resource->view('minimal');
+    expect($resource->hasViewExplicitlySet())->toBeTrue();
 });
 
 it('allows chaining mode methods', function (): void {
@@ -93,22 +93,22 @@ it('allows chaining mode methods', function (): void {
     ]);
 
     $resource = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withTimestamps()
-        ->withoutTimestamps();
+        ->view('minimal')
+        ->withView('avatar')
+        ->withView('timestamps')
+        ->withoutView('timestamps');
 
-    expect($resource->getActiveModes())
+    expect($resource->getActiveViews())
         ->toBe(['minimal', 'avatar']);
 });
 
 it('does not duplicate modes when adding same mode twice', function (): void {
     $user = new User(['id' => 1, 'name' => 'Test']);
     $resource = UserResource::make($user)
-        ->minimal()
-        ->withAvatar()
-        ->withAvatar()
-        ->withAvatar();
+        ->view('minimal')
+        ->withView('avatar')
+        ->withView('avatar')
+        ->withView('avatar');
 
-    expect($resource->getActiveModes())->toBe(['minimal', 'avatar']);
+    expect($resource->getActiveViews())->toBe(['minimal', 'avatar']);
 });

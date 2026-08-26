@@ -7,7 +7,7 @@ namespace Benyaminrmb\LaravelDynamicResources\DTO;
 readonly class ResourceQuerySelection
 {
     public function __construct(
-        public ?string $mode,
+        public ?string $view,
         public ?FieldSelection $only,
         public ?FieldSelection $except,
     ) {}

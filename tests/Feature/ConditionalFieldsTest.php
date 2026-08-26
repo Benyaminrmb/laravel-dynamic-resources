@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Benyaminrmb\LaravelDynamicResources\Attributes\View;
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Models\Post;
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Models\User;
@@ -12,37 +13,36 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ConditionalFieldsResource extends DynamicResource
 {
-    public function fields(): array
+    #[View(default: true)]
+    protected function standardFields(): array
     {
         return [
-            'default' => fn () => [
-                'id' => $this->id,
-                'name' => $this->name,
-                'avatar' => $this->when($this->avatar !== null, $this->avatar),
-                'bio' => $this->when($this->bio !== null, fn () => $this->bio, 'No bio provided'),
-            ],
-
-            // Mode names without 'with' prefix to match method calls
-            'counts' => fn () => [
-                'id' => $this->id,
-                'name' => $this->name,
-                'posts_count' => $this->whenCounted('posts'),
-            ],
-
-            'relations' => fn () => [
-                'id' => $this->id,
-                'name' => $this->name,
-                'posts' => $this->whenLoaded('posts', fn () => $this->posts->toArray()),
-            ],
-
-            'merge' => fn () => array_merge(
-                ['id' => $this->id],
-                ($this->isAdmin ?? false) ? [
-                    'admin_since' => $this->admin_since ?? null,
-                    'permissions' => $this->permissions ?? [],
-                ] : []
-            ),
+            'id' => $this->id,
+            'name' => $this->name,
+            'avatar' => $this->when($this->avatar !== null, $this->avatar),
+            'bio' => $this->when($this->bio !== null, fn () => $this->bio, 'No bio provided'),
         ];
+    }
+
+    #[View]
+    protected function countsFields(): array
+    {
+        return ['id' => $this->id, 'name' => $this->name, 'posts_count' => $this->whenCounted('posts')];
+    }
+
+    #[View]
+    protected function relationsFields(): array
+    {
+        return ['id' => $this->id, 'name' => $this->name, 'posts' => $this->whenLoaded('posts', fn () => $this->posts->toArray())];
+    }
+
+    #[View]
+    protected function mergeFields(): array
+    {
+        return array_merge(['id' => $this->id], ($this->isAdmin ?? false) ? [
+            'admin_since' => $this->admin_since ?? null,
+            'permissions' => $this->permissions ?? [],
+        ] : []);
     }
 }
 
@@ -113,7 +113,7 @@ describe('Conditional Fields', function (): void {
             ]));
 
             $result = ConditionalFieldsResource::make($user)
-                ->relations()
+                ->view('relations')
                 ->toArray(request());
 
             expect($result)
@@ -128,7 +128,7 @@ describe('Conditional Fields', function (): void {
             ]);
 
             $result = ConditionalFieldsResource::make($user)
-                ->relations()
+                ->view('relations')
                 ->toArray(request());
 
             expect($result)->not->toHaveKey('posts');
@@ -146,7 +146,7 @@ describe('Conditional Fields', function (): void {
             $user->posts_count = 5;
 
             $result = ConditionalFieldsResource::make($user)
-                ->counts()
+                ->view('counts')
                 ->toArray(request());
 
             expect($result)
@@ -160,7 +160,7 @@ describe('Conditional Fields', function (): void {
             ]);
 
             $result = ConditionalFieldsResource::make($user)
-                ->counts()
+                ->view('counts')
                 ->toArray(request());
 
             expect($result)->not->toHaveKey('posts_count');
@@ -178,7 +178,7 @@ describe('Conditional Fields', function (): void {
             ]);
 
             $result = ConditionalFieldsResource::make($user)
-                ->merge()
+                ->view('merge')
                 ->toArray(request());
 
             expect($result)
@@ -195,7 +195,7 @@ describe('Conditional Fields', function (): void {
             ]);
 
             $result = ConditionalFieldsResource::make($user)
-                ->merge()
+                ->view('merge')
                 ->toArray(request());
 
             expect($result)

@@ -15,9 +15,9 @@ class InvalidResourceQueryException extends BadRequestHttpException implements D
         parent::__construct($message);
     }
 
-    public static function modeNotAllowed(string $mode): self
+    public static function viewNotAllowed(string $view): self
     {
-        return new self(sprintf("The requested resource mode '%s' is not allowed.", $mode), 'mode');
+        return new self(sprintf("The requested resource view '%s' is not allowed.", $view), 'view');
     }
 
     public static function malformed(string $parameter): self
@@ -32,7 +32,7 @@ class InvalidResourceQueryException extends BadRequestHttpException implements D
 
     public function getSuggestion(): ?string
     {
-        return 'Use a permitted mode and a comma-separated list of valid field paths.';
+        return 'Use a permitted view and a comma-separated list of valid field paths.';
     }
 
     public function toArray(): array

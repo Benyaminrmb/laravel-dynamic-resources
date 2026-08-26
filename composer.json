@@ -1,7 +1,7 @@
 {
   "$schema": "https://getcomposer.org/schema.json",
   "name": "benyaminrmb/laravel-dynamic-resources",
-  "description": "Composable, mode-based API resources and safe sparse fieldsets for Laravel.",
+  "description": "Composable, IDE-discoverable API resource views and safe sparse fieldsets for Laravel.",
   "keywords": [
     "api",
     "dynamic",
@@ -60,7 +60,7 @@
     "format": "vendor/bin/pint",
     "format:check": "vendor/bin/pint --test",
     "test": "vendor/bin/pest",
-    "test:coverage": "vendor/bin/pest --coverage --min=80",
+    "test:coverage": "@php -d xdebug.mode=coverage vendor/bin/pest --coverage --min=80",
     "composer:validate": "composer validate --strict --no-check-publish"
   },
   "extra": {

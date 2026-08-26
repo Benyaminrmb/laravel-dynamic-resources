@@ -18,7 +18,7 @@ use Symfony\Component\Finder\Finder;
  *
  * ```bash
  * php artisan dynamic-resources:list
- * php artisan dynamic-resources:list --modes
+ * php artisan dynamic-resources:list --views
  * php artisan dynamic-resources:list --json
  * ```
  */
@@ -32,7 +32,7 @@ class ResourceListCommand extends Command
      */
     protected $signature = 'dynamic-resources:list
         {--filter= : Filter resources by name}
-        {--modes : Show available modes for each resource}
+        {--views : Show available views for each resource}
         {--json : Output as JSON}';
 
     /**
@@ -79,10 +79,10 @@ class ResourceListCommand extends Command
         foreach ($resources as $resource) {
             $this->line(sprintf('  <fg=green>%s</>', $resource['class']));
 
-            if ($this->option('modes') && isset($resource['modes'])) {
-                foreach ($resource['modes'] as $mode) {
-                    $default = $mode === 'default' ? ' <fg=yellow>(default)</>' : '';
-                    $this->line(sprintf('    - %s%s', $mode, $default));
+            if ($this->option('views') && isset($resource['views'])) {
+                foreach ($resource['views'] as $view) {
+                    $default = $view === ($resource['default_view'] ?? '') ? ' <fg=yellow>(default)</>' : '';
+                    $this->line(sprintf('    - %s%s', $view, $default));
                 }
             }
 
@@ -95,7 +95,7 @@ class ResourceListCommand extends Command
     /**
      * Discover all DynamicResource classes.
      *
-     * @return array<int, array{class: class-string, modes?: list<string>}>
+     * @return array<int, array{class: class-string, views?: list<string>, default_view?: string}>
      */
     protected function discoverResources(): array
     {
@@ -143,16 +143,18 @@ class ResourceListCommand extends Command
                     'class' => $className,
                 ];
 
-                // Get modes if requested
-                if ($this->option('modes')) {
+                // Get views if requested
+                if ($this->option('views')) {
                     try {
                         $instance = new $className(null);
 
                         if ($instance instanceof DynamicResource) {
-                            $resourceData['modes'] = array_keys($instance->fields());
+                            $resourceData['views'] = $instance->getAvailableViews();
+                            $resourceData['default_view'] = $instance->defaultView();
                         }
                     } catch (\Throwable $exception) {
-                        $resourceData['modes'] = [sprintf('Unable to determine modes: %s', $exception->getMessage())];
+                        $resourceData['views'] = [sprintf('Unable to determine views: %s', $exception->getMessage())];
+                        $resourceData['default_view'] = '';
                     }
                 }
 

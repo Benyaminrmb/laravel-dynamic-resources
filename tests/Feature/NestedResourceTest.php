@@ -24,7 +24,7 @@ describe('Nested Resources', function (): void {
 
         $post->setRelation('user', $user);
 
-        $result = PostResource::make($post)->detailed()->toArray(request());
+        $result = PostResource::make($post)->view('detailed')->toArray(request());
 
         expect($result)
             ->toHaveKey('id', 1)
@@ -45,7 +45,7 @@ describe('Nested Resources', function (): void {
         ]);
 
         // Do NOT set any relation
-        $result = PostResource::make($post)->detailed()->toArray(request());
+        $result = PostResource::make($post)->view('detailed')->toArray(request());
 
         expect($result)
             ->toHaveKey('id', 1)
@@ -69,7 +69,7 @@ describe('Nested Resources', function (): void {
 
         $post->setRelation('user', $user);
 
-        $result = PostResource::make($post)->detailed()->toArray(request());
+        $result = PostResource::make($post)->view('detailed')->toArray(request());
 
         // Nested resource should be minimal (no email)
         expect($result['author'])
@@ -118,7 +118,7 @@ describe('Nested Resources', function (): void {
         ]);
         $user->setRelation('posts', $posts);
 
-        $result = UserResource::make($user)->detailed()->toArray(request());
+        $result = UserResource::make($user)->view('detailed')->toArray(request());
 
         expect($result)
             ->toHaveKey('posts')
@@ -139,7 +139,7 @@ describe('Nested Resources', function (): void {
         // Simulate null relation (relation loaded but value is null)
         $post->setRelation('user', null);
 
-        $result = PostResource::make($post)->detailed()->toArray(request());
+        $result = PostResource::make($post)->view('detailed')->toArray(request());
 
         expect($result)
             ->toHaveKey('id', 1)
@@ -158,7 +158,7 @@ describe('Nested Resources', function (): void {
         ]);
         $user->setRelation('posts', new Collection([]));
 
-        $result = UserResource::make($user)->detailed()->toArray(request());
+        $result = UserResource::make($user)->view('detailed')->toArray(request());
 
         expect($result)
             ->toHaveKey('posts')
@@ -182,7 +182,7 @@ describe('Nested Resource Collections', function (): void {
         ]);
         $user->setRelation('posts', $posts);
 
-        $result = UserResource::make($user)->detailed()->toArray(request());
+        $result = UserResource::make($user)->view('detailed')->toArray(request());
 
         expect($result['posts'])->toHaveCount(2);
 

@@ -2,52 +2,59 @@
 
 declare(strict_types=1);
 
+use Benyaminrmb\LaravelDynamicResources\Attributes\View;
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
-use Benyaminrmb\LaravelDynamicResources\Exceptions\CircularReferenceException;
-use Benyaminrmb\LaravelDynamicResources\Exceptions\UndefinedModeException;
+use Benyaminrmb\LaravelDynamicResources\Exceptions\UndefinedViewException;
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Models\User;
 use Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Resources\UserResource;
 
 it('supports explicit mode composition methods', function (): void {
     $resource = UserResource::make(new User(['id' => 1, 'name' => 'Taylor', 'avatar' => 'a.jpg']))
-        ->mode('minimal')
-        ->withMode('avatar')
-        ->withoutMode('avatar');
+        ->view('minimal')
+        ->withView('avatar')
+        ->withoutView('avatar');
 
-    expect($resource->getActiveModes())->toBe(['minimal'])
+    expect($resource->getActiveViews())->toBe(['minimal'])
         ->and($resource->toArray(request()))->toBe(['id' => 1, 'name' => 'Taylor']);
 });
 
 it('throws for undefined explicit modes', function (): void {
-    expect(fn () => UserResource::make(new User)->mode('unknown'))
-        ->toThrow(UndefinedModeException::class);
+    expect(fn () => UserResource::make(new User)->view('unknown'))
+        ->toThrow(UndefinedViewException::class);
 });
 
-it('detects circular field inheritance', function (): void {
+it('composes views through ordinary IDE-visible methods', function (): void {
     $resource = new class(new User) extends DynamicResource
     {
-        public function fields(): array
+        #[View(default: true)]
+        protected function standardFields(): array
         {
-            return [
-                'default' => fn (): array => $this->fieldsFrom('loop'),
-                'loop' => fn (): array => $this->fieldsFrom('default'),
-            ];
+            return ['id'];
+        }
+
+        #[View]
+        protected function namedFields(): array
+        {
+            return $this->combine($this->standardFields(), ['name']);
         }
     };
 
-    expect(fn () => $resource->toArray(request()))
-        ->toThrow(CircularReferenceException::class);
+    expect($resource->view('named')->toArray(request()))->toHaveKeys(['id', 'name']);
 });
 
 it('does not leak a parent mode into a child resource', function (): void {
     $child = new class(new User(['id' => 2, 'name' => 'Child', 'email' => 'child@example.com'])) extends DynamicResource
     {
-        public function fields(): array
+        #[View(default: true)]
+        protected function standardFields(): array
         {
-            return [
-                'default' => ['id', 'name'],
-                'private' => ['id', 'email'],
-            ];
+            return ['id', 'name'];
+        }
+
+        #[View]
+        protected function privateFields(): array
+        {
+            return ['id', 'email'];
         }
     };
 
@@ -58,16 +65,20 @@ it('does not leak a parent mode into a child resource', function (): void {
             parent::__construct($resource);
         }
 
-        public function fields(): array
+        #[View(default: true)]
+        protected function standardFields(): array
         {
-            return [
-                'default' => ['id'],
-                'private' => fn (): array => ['child' => $this->child],
-            ];
+            return ['id'];
+        }
+
+        #[View]
+        protected function privateFields(): array
+        {
+            return ['child' => $this->child];
         }
     };
 
-    $result = $parent->mode('private')->toArray(request());
+    $result = $parent->view('private')->toArray(request());
 
     expect($result['child'])->toBe(['id' => 2, 'name' => 'Child']);
 });

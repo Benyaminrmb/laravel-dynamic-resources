@@ -4,59 +4,58 @@ declare(strict_types=1);
 
 namespace Benyaminrmb\LaravelDynamicResources;
 
-use BadMethodCallException;
 use Benyaminrmb\LaravelDynamicResources\Collections\DynamicResourceCollection;
 use Benyaminrmb\LaravelDynamicResources\Concerns\HasConditionalFields;
 use Benyaminrmb\LaravelDynamicResources\Concerns\HasFieldFiltering;
-use Benyaminrmb\LaravelDynamicResources\Concerns\HasModes;
+use Benyaminrmb\LaravelDynamicResources\Concerns\HasViews;
 use Benyaminrmb\LaravelDynamicResources\DTO\FieldSelection;
-use Benyaminrmb\LaravelDynamicResources\Exceptions\CircularReferenceException;
 use Benyaminrmb\LaravelDynamicResources\Exceptions\InvalidResourceQueryException;
-use Benyaminrmb\LaravelDynamicResources\Exceptions\UndefinedModeException;
+use Benyaminrmb\LaravelDynamicResources\Exceptions\UndefinedViewException;
 use Benyaminrmb\LaravelDynamicResources\Services\ResourceQueryParser;
+use Benyaminrmb\LaravelDynamicResources\Services\ViewRegistry;
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\MergeValue;
 use Illuminate\Http\Resources\MissingValue;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Traits\Macroable;
 use Override;
+use Throwable;
+use UnexpectedValueException;
 
-/**
- * A Laravel JSON resource with composable field modes and safe sparse fieldsets.
- */
+/** A Laravel JSON resource with composable, IDE-discoverable views. */
 #[\AllowDynamicProperties]
 abstract class DynamicResource extends JsonResource
 {
     use HasConditionalFields;
     use HasFieldFiltering;
-    use HasModes;
-    use Macroable {
-        __call as private callMacro;
-    }
-
-    protected const string DEFAULT_MODE = 'default';
-
-    /** @var list<string> */
-    private array $definitionStack = [];
+    use HasViews;
 
     private ?FieldSelection $requestOnly = null;
 
     private ?FieldSelection $requestExcept = null;
 
-    /** @return array<string, array<int|string, mixed>|Closure> */
-    abstract public function fields(): array;
-
-    public function defaultMode(): string
+    public function defaultView(): string
     {
-        return static::DEFAULT_MODE;
+        return $this->registry()->defaultFor(static::class);
     }
 
     /** @return list<string> */
-    protected function requestableModes(): array
+    public function getAvailableViews(): array
     {
-        return [];
+        return array_keys($this->registry()->for(static::class));
+    }
+
+    public function isViewAvailable(string $view): bool
+    {
+        return in_array($view, $this->getAvailableViews(), true);
+    }
+
+    /** @return list<string> */
+    public function getRequestableViews(): array
+    {
+        return $this->registry()->requestableFor(static::class);
     }
 
     public function fromRequest(?Request $request = null): static
@@ -64,12 +63,11 @@ abstract class DynamicResource extends JsonResource
         $request ??= request();
         $selection = app(ResourceQueryParser::class)->parse($request);
 
-        if ($selection->mode !== null) {
-            if (! in_array($selection->mode, $this->requestableModes(), true)) {
-                throw InvalidResourceQueryException::modeNotAllowed($selection->mode);
+        if ($selection->view !== null) {
+            if (! in_array($selection->view, $this->getRequestableViews(), true)) {
+                throw InvalidResourceQueryException::viewNotAllowed($selection->view);
             }
-
-            $this->mode($selection->mode);
+            $this->view($selection->view);
         }
 
         $this->requestOnly = $selection->only;
@@ -80,23 +78,20 @@ abstract class DynamicResource extends JsonResource
 
     /** @return array<string, mixed> */
     #[Override]
-    public function toArray(Request $request): array
+    final public function toArray(Request $request): array
     {
         if ($this->resource === null || $this->resource instanceof MissingValue) {
             return [];
         }
 
         $fields = [];
-
-        foreach ($this->getActiveModes() as $mode) {
-            $fields = array_merge($fields, $this->fieldsFrom($mode));
+        foreach ($this->getActiveViews() as $view) {
+            $fields = array_merge($fields, $this->fieldsForView($view));
         }
 
         $result = [];
-
         foreach ($this->applyRootFilters($fields) as $key => $value) {
             $resolved = $this->resolveField($value, $key, $request);
-
             if (! $resolved instanceof MissingValue) {
                 $result[$key] = $resolved;
             }
@@ -110,62 +105,35 @@ abstract class DynamicResource extends JsonResource
         return new DynamicResourceCollection($resource, static::class);
     }
 
-    /** @return array<string, mixed> */
-    protected function fieldsFrom(string $mode): array
+    /** @param array<int|string, mixed> ...$views
+     * @return array<int|string, mixed>
+     */
+    protected function combine(array ...$views): array
     {
-        if (in_array($mode, $this->definitionStack, true)) {
-            throw new CircularReferenceException([...$this->definitionStack, $mode]);
-        }
-
-        $definitions = $this->fields();
-
-        if (! array_key_exists($mode, $definitions)) {
-            throw new UndefinedModeException($mode, static::class, array_keys($definitions));
-        }
-
-        $this->definitionStack[] = $mode;
-
-        try {
-            $definition = $definitions[$mode];
-            $fields = $definition instanceof Closure ? $definition() : $definition;
-
-            if (! is_array($fields)) {
-                throw new \UnexpectedValueException(sprintf('Mode %s::%s must return an array.', static::class, $mode));
-            }
-
-            return $this->normalizeFields($fields);
-        } finally {
-            array_pop($this->definitionStack);
-        }
+        return array_merge(...$views);
     }
 
-    /** @return list<string> */
-    public function getAvailableModes(): array
+    /**
+     * @param  list<string>|string|null  $view
+     * @param  class-string<DynamicResource>|null  $resourceClass
+     */
+    protected function relation(string $name, string|array|null $view = null, ?string $resourceClass = null): mixed
     {
-        return array_keys($this->fields());
-    }
-
-    public function isModeAvailable(string $mode): bool
-    {
-        return array_key_exists($mode, $this->fields());
-    }
-
-    /** @param array<int|string, mixed> $parameters */
-    public function __call($method, $parameters)
-    {
-        if (static::hasMacro($method)) {
-            return $this->callMacro($method, $parameters);
+        if (! $this->resource instanceof Model || ! $this->resource->relationLoaded($name)) {
+            return new MissingValue;
         }
 
-        try {
-            return $this->handleModeCall((string) $method, array_values($parameters));
-        } catch (BadMethodCallException $exception) {
-            if ($this->resource !== null && is_object($this->resource) && method_exists($this->resource, (string) $method)) {
-                return $this->resource->{$method}(...$parameters);
-            }
-
-            throw $exception;
+        $related = $this->resource->getRelation($name);
+        if ($related === null || $related instanceof MissingValue) {
+            return new MissingValue;
         }
+
+        $resourceClass ??= $this->guessRelatedResource($related, $name);
+        $resource = $related instanceof Collection || is_array($related)
+            ? $resourceClass::collection($related)
+            : $resourceClass::make($related);
+
+        return $view === null ? $resource : $resource->view($view);
     }
 
     /** @internal */
@@ -175,14 +143,34 @@ abstract class DynamicResource extends JsonResource
         $this->requestExcept = $except;
     }
 
-    /**
-     * @param  array<int|string, mixed>  $fields
+    /** @internal */
+    public function passRequestSelectionTo(DynamicResourceCollection $collection): void
+    {
+        $collection->inheritRequestSelection($this->requestOnly, $this->requestExcept);
+    }
+
+    /** @return array<string, mixed> */
+    private function fieldsForView(string $view): array
+    {
+        $definition = $this->registry()->for(static::class)[$view] ?? null;
+        if ($definition === null) {
+            throw new UndefinedViewException($view, static::class, $this->getAvailableViews());
+        }
+
+        $fields = $definition->method->invoke($this);
+        if (! is_array($fields)) {
+            throw new UnexpectedValueException(sprintf('View %s::%s must return an array.', static::class, $view));
+        }
+
+        return $this->normalizeFields($fields);
+    }
+
+    /** @param array<int|string, mixed> $fields
      * @return array<string, mixed>
      */
     private function normalizeFields(array $fields): array
     {
         $normalized = [];
-
         foreach ($fields as $key => $value) {
             if (is_int($key)) {
                 if ($value instanceof MergeValue) {
@@ -190,13 +178,10 @@ abstract class DynamicResource extends JsonResource
 
                     continue;
                 }
-
                 if (! is_string($value)) {
-                    throw new \UnexpectedValueException('Numeric field definitions must contain field names or merge values.');
+                    throw new UnexpectedValueException('Numeric field definitions must contain field names or merge values.');
                 }
-
-                $name = $value;
-                $normalized[$name] = fn (): mixed => data_get($this->resource, $name);
+                $normalized[$value] = fn (): mixed => data_get($this->resource, $value);
             } else {
                 $normalized[$key] = $value;
             }
@@ -205,8 +190,7 @@ abstract class DynamicResource extends JsonResource
         return $normalized;
     }
 
-    /**
-     * @param  array<string, mixed>  $fields
+    /** @param array<string, mixed> $fields
      * @return array<string, mixed>
      */
     private function applyRootFilters(array $fields): array
@@ -214,7 +198,6 @@ abstract class DynamicResource extends JsonResource
         if ($this->requestOnly !== null) {
             $fields = array_intersect_key($fields, array_flip($this->requestOnly->fields()));
         }
-
         if ($this->requestExcept !== null) {
             $fields = array_diff_key($fields, array_flip($this->requestExcept->fields()));
         }
@@ -224,14 +207,10 @@ abstract class DynamicResource extends JsonResource
 
     private function resolveField(mixed $value, string|int $key, Request $request): mixed
     {
-        if ($value instanceof Closure) {
-            $value = $value();
-        }
-
+        $value = $value instanceof Closure ? $value() : $value;
         if ($value instanceof MissingValue) {
             return $value;
         }
-
         if ($value instanceof MergeValue) {
             return $this->resolveArray($value->data, $request);
         }
@@ -244,46 +223,70 @@ abstract class DynamicResource extends JsonResource
 
             return $value->toArray($request);
         }
-
         if ($value instanceof DynamicResourceCollection) {
             $value->inheritRequestSelection($childOnly, $childExcept);
 
             return $value->toArray($request);
         }
-
         if ($value instanceof Collection) {
             return $value->map(fn (mixed $item): mixed => $this->resolveField($item, $key, $request));
         }
 
-        if (is_array($value)) {
-            return $this->resolveArray($value, $request);
-        }
-
-        return $value;
+        return is_array($value) ? $this->resolveArray($value, $request) : $value;
     }
 
-    /**
-     * @param  array<int|string, mixed>  $values
+    /** @param array<int|string, mixed> $values
      * @return array<int|string, mixed>
      */
     private function resolveArray(array $values, Request $request): array
     {
         $result = [];
-
         foreach ($values as $key => $value) {
             if ($value instanceof MergeValue) {
                 $result = array_merge($result, $this->resolveArray($value->data, $request));
 
                 continue;
             }
-
             $resolved = $this->resolveField($value, $key, $request);
-
             if (! $resolved instanceof MissingValue) {
                 $result[$key] = $resolved;
             }
         }
 
         return $result;
+    }
+
+    /** @return class-string<DynamicResource> */
+    private function guessRelatedResource(mixed $related, string $relation): string
+    {
+        $model = $related instanceof Model ? $related : ($related instanceof Collection ? $related->first() : null);
+        if (! $model instanceof Model && $this->resource instanceof Model && method_exists($this->resource, $relation)) {
+            try {
+                $relationship = $this->resource->{$relation}();
+                $model = is_object($relationship) && method_exists($relationship, 'getRelated')
+                    ? $relationship->getRelated()
+                    : null;
+            } catch (Throwable) {
+                $model = null;
+            }
+        }
+
+        if ($model instanceof Model) {
+            foreach ($model::guessResourceName() as $candidate) {
+                if (is_subclass_of($candidate, self::class)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        throw new UnexpectedValueException(sprintf(
+            "Unable to discover a DynamicResource for loaded relation '%s'; pass resourceClass explicitly.",
+            $relation,
+        ));
+    }
+
+    private function registry(): ViewRegistry
+    {
+        return app(ViewRegistry::class);
     }
 }

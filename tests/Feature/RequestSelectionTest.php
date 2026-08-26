@@ -18,7 +18,7 @@ it('applies an allowlisted request mode and sparse fields explicitly', function 
         'bio' => 'Developer',
     ]);
     $request = Request::create('/users', 'GET', [
-        'mode' => 'detailed',
+        'view' => 'detailed',
         'fields' => 'id,bio',
     ]);
 
@@ -28,7 +28,7 @@ it('applies an allowlisted request mode and sparse fields explicitly', function 
 });
 
 it('rejects a mode that the resource does not expose to clients', function (): void {
-    $request = Request::create('/users', 'GET', ['mode' => 'timestamps']);
+    $request = Request::create('/users', 'GET', ['view' => 'timestamps']);
 
     expect(fn () => UserResource::make(new User)->fromRequest($request))
         ->toThrow(InvalidResourceQueryException::class);
@@ -58,7 +58,7 @@ it('applies dotted fields to nested resource collections without inheriting mode
     ]);
     $user->setRelation('posts', $posts);
     $request = Request::create('/users', 'GET', [
-        'mode' => 'detailed',
+        'view' => 'detailed',
         'fields' => 'id,posts.id',
     ]);
 
@@ -77,7 +77,7 @@ it('applies dotted exclusions only to the nested resource', function (): void {
     $user = new User(['id' => 1, 'name' => 'Taylor', 'email' => 'taylor@example.com']);
     $user->setRelation('posts', $posts);
     $request = Request::create('/users', 'GET', [
-        'mode' => 'detailed',
+        'view' => 'detailed',
         'exclude' => 'posts.body',
     ]);
 
@@ -97,7 +97,7 @@ it('rejects malformed and excessively deep field paths', function (string $field
 })->with(['invalid characters' => 'id,$password', 'too deep' => 'posts.author.profile.name']);
 
 it('supports request selection on collections', function (): void {
-    $request = Request::create('/users', 'GET', ['mode' => 'minimal', 'fields' => 'id']);
+    $request = Request::create('/users', 'GET', ['view' => 'minimal', 'fields' => 'id']);
     $users = collect([new User(['id' => 1, 'name' => 'Taylor'])]);
 
     $result = UserResource::collection($users)->fromRequest($request)->toArray($request);
@@ -108,15 +108,46 @@ it('supports request selection on collections', function (): void {
 it('renders invalid resource queries as http 400 responses', function (): void {
     Route::get('/invalid-resource-query', fn () => UserResource::make(new User)->fromRequest(request()));
 
-    $this->getJson('/invalid-resource-query?mode=internal')->assertBadRequest();
+    $this->getJson('/invalid-resource-query?view=internal')->assertBadRequest();
 });
 
 it('supports configured request parameter names', function (): void {
     config([
-        'dynamic-resources.request.mode_parameter' => 'view',
+        'dynamic-resources.request.view_parameter' => 'view',
         'dynamic-resources.request.fields_parameter' => 'select',
     ]);
     $request = Request::create('/users', 'GET', ['view' => 'minimal', 'select' => 'id']);
+
+    $result = UserResource::make(new User(['id' => 1, 'name' => 'Taylor']))
+        ->fromRequest($request)
+        ->toArray($request);
+
+    expect($result)->toBe(['id' => 1]);
+});
+
+it('rejects non-string query parameters', function (string $parameter): void {
+    $request = Request::create('/users', 'GET', [$parameter => ['id']]);
+
+    expect(fn () => UserResource::make(new User)->fromRequest($request))
+        ->toThrow(InvalidResourceQueryException::class);
+})->with(['view', 'fields', 'exclude']);
+
+it('enforces the configured maximum number of fields', function (): void {
+    config(['dynamic-resources.request.max_fields' => 2]);
+    $request = Request::create('/users', 'GET', ['fields' => 'id,name,email']);
+
+    expect(fn () => UserResource::make(new User)->fromRequest($request))
+        ->toThrow(InvalidResourceQueryException::class, 'exceeds the limit of 2 entries');
+});
+
+it('falls back to safe defaults for invalid parser configuration', function (): void {
+    config([
+        'dynamic-resources.request.view_parameter' => '',
+        'dynamic-resources.request.fields_parameter' => ['invalid'],
+        'dynamic-resources.request.max_fields' => 0,
+        'dynamic-resources.request.max_depth' => 'invalid',
+    ]);
+    $request = Request::create('/users', 'GET', ['view' => 'minimal', 'fields' => 'id']);
 
     $result = UserResource::make(new User(['id' => 1, 'name' => 'Taylor']))
         ->fromRequest($request)

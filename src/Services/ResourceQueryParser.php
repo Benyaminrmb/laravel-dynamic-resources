@@ -13,18 +13,18 @@ class ResourceQueryParser
 {
     public function parse(Request $request): ResourceQuerySelection
     {
-        $modeParameter = $this->stringConfig('mode_parameter', 'mode');
+        $viewParameter = $this->stringConfig('view_parameter', 'view');
         $fieldsParameter = $this->stringConfig('fields_parameter', 'fields');
         $excludeParameter = $this->stringConfig('exclude_parameter', 'exclude');
 
         return new ResourceQuerySelection(
-            mode: $this->parseMode($request, $modeParameter),
+            view: $this->parseView($request, $viewParameter),
             only: $this->parseFields($request, $fieldsParameter, true),
             except: $this->parseFields($request, $excludeParameter, false),
         );
     }
 
-    private function parseMode(Request $request, string $parameter): ?string
+    private function parseView(Request $request, string $parameter): ?string
     {
         $value = $request->query($parameter);
 

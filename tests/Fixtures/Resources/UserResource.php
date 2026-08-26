@@ -4,55 +4,106 @@ declare(strict_types=1);
 
 namespace Benyaminrmb\LaravelDynamicResources\Tests\Fixtures\Resources;
 
+use Benyaminrmb\LaravelDynamicResources\Attributes\View;
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
 
-/**
- * Test UserResource with multiple modes.
- */
 class UserResource extends DynamicResource
 {
-    protected function requestableModes(): array
+    public const string VIEW_MINIMAL = 'minimal';
+
+    public const string VIEW_STANDARD = 'standard';
+
+    public const string VIEW_DETAILED = 'detailed';
+
+    public const string VIEW_TIMESTAMPS = 'timestamps';
+
+    public const string VIEW_AVATAR = 'avatar';
+
+    public const string VIEW_POSTS = 'posts';
+
+    public const string VIEW_PROFILE = 'profile';
+
+    public const string VIEW_MINIMAL_WITH_AVATAR = 'minimal-with-avatar';
+
+    public function minimal(): static
     {
-        return ['minimal', 'default', 'detailed'];
+        return $this->view(self::VIEW_MINIMAL);
     }
 
-    public function fields(): array
+    public function detailed(): static
     {
-        return [
-            'minimal' => [
-                'id',
-                'name',
-            ],
+        return $this->view(self::VIEW_DETAILED);
+    }
 
-            'default' => [
-                'id',
-                'name',
-                'email',
-            ],
+    public function withAvatar(): static
+    {
+        return $this->withView(self::VIEW_AVATAR);
+    }
 
-            'detailed' => fn () => [
-                ...$this->fieldsFrom('default'),
-                'bio' => $this->bio,
-                'created_at' => $this->created_at?->toISOString(),
-                'posts' => PostResource::collection($this->whenLoaded('posts')),
-            ],
+    public function withoutAvatar(): static
+    {
+        return $this->withoutView(self::VIEW_AVATAR);
+    }
 
-            'timestamps' => fn () => [
-                'created_at' => $this->created_at?->toISOString(),
-                'updated_at' => $this->updated_at?->toISOString(),
-            ],
+    public function withTimestamps(): static
+    {
+        return $this->withView(self::VIEW_TIMESTAMPS);
+    }
 
-            'avatar' => fn () => [
-                'avatar' => $this->avatar,
-            ],
+    public function withoutTimestamps(): static
+    {
+        return $this->withoutView(self::VIEW_TIMESTAMPS);
+    }
 
-            'posts' => fn () => [
-                'posts' => PostResource::collection($this->whenLoaded('posts')),
-            ],
+    #[View(requestable: true)]
+    protected function minimalFields(): array
+    {
+        return ['id', 'name'];
+    }
 
-            'profile' => fn () => [
-                'profile' => $this->whenLoaded('profile', fn () => ProfileResource::make($this->profile)),
-            ],
-        ];
+    #[View(default: true, requestable: true)]
+    protected function standardFields(): array
+    {
+        return ['id', 'name', 'email'];
+    }
+
+    #[View(requestable: true)]
+    protected function detailedFields(): array
+    {
+        return $this->combine($this->standardFields(), [
+            'bio' => $this->bio,
+            'created_at' => $this->created_at?->toISOString(),
+            'posts' => $this->relation('posts', resourceClass: PostResource::class),
+        ]);
+    }
+
+    #[View]
+    protected function timestampsFields(): array
+    {
+        return ['created_at' => $this->created_at?->toISOString(), 'updated_at' => $this->updated_at?->toISOString()];
+    }
+
+    #[View]
+    protected function avatarFields(): array
+    {
+        return ['avatar' => $this->avatar];
+    }
+
+    #[View]
+    protected function postsFields(): array
+    {
+        return ['posts' => $this->relation('posts', resourceClass: PostResource::class)];
+    }
+
+    #[View]
+    protected function profileFields(): array
+    {
+        return ['profile' => $this->relation('profile', resourceClass: ProfileResource::class)];
+    }
+
+    #[View]
+    protected function minimalWithAvatarFields(): array
+    {
+        return $this->combine($this->minimalFields(), $this->avatarFields());
     }
 }

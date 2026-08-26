@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 use Benyaminrmb\LaravelDynamicResources\DynamicResource;
 
 return [
@@ -10,11 +11,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | These options are only read after a resource or collection explicitly
-    | calls fromRequest(). Modes must also be allowlisted by the resource.
+    | calls fromRequest(). Views must also be allowlisted by the resource.
     |
     */
     'request' => [
-        'mode_parameter' => 'mode',
+        'view_parameter' => 'view',
         'fields_parameter' => 'fields',
         'exclude_parameter' => 'exclude',
         'max_fields' => 50,

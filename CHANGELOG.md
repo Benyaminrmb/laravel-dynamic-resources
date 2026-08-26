@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Method-level `#[View]` definitions with direct PHP composition through `combine()`.
+- Real generated view constants and fluent selector methods for IDE discovery.
+- `dynamic-resources:sync` and `--check` for keeping generated symbols current.
+- Loaded-only `relation()` serialization using related dynamic resources.
+
+### Changed
+
+- Replaced modes with string-or-array `view()`, `withView()`, and `withoutView()` APIs.
+- Resource generation now creates one attributed method per response view.
+- Request selection now uses the `view` parameter and `view_parameter` configuration key.
+
+### Removed
+
+- Nested `fields()` definitions, `fieldsFrom()`, mode APIs, and runtime magic dispatch.
+
 ## [2.0.0] - Unreleased
 
 ### Added
